@@ -344,8 +344,6 @@ FEATURE_COLUMNS = [
     "active_contributors_trailing",
     "active_contributors_recent",
     "bus_factor_ratio",
-    "median_first_response_hours",
-    "response_time_trend",
     "issues_opened_trailing",
     "issues_closed_trailing",
     "open_close_ratio",
@@ -358,4 +356,12 @@ FEATURE_COLUMNS = [
     "has_funding_link",
     "open_issues_count",
 ]
-"""Columns fed to the model. Keep in sync with PackageFeatures."""
+"""Columns fed to the model.
+
+Deliberately excludes `median_first_response_hours` and `response_time_trend`:
+both are declared on PackageFeatures but not yet computed, so one is always
+None and the other always 0.0. A never-populated column is not a feature — it
+is a null column that LightGBM rejects outright and that would silently
+contribute nothing even if it were coerced. Add them back here once
+compute_issue_features actually fills them in.
+"""

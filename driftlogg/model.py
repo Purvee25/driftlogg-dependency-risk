@@ -85,6 +85,45 @@ def split_by_date(frame: pd.DataFrame, boundary: datetime) -> TemporalSplit:
     return TemporalSplit(train=train, test=test, boundary=boundary)
 
 
+def _validate_features(frame: pd.DataFrame, columns: list[str]) -> pd.DataFrame:
+    """Coerce the feature block to numeric, failing with a useful message.
+
+    LightGBM rejects object-dtype columns with a traceback that bottoms out in
+    its C layer and names the symptom, not the cause. An all-None column —
+    typically a feature declared but never computed — is the usual culprit, so
+    catch it here and say so.
+
+    Args:
+        frame: Table containing the feature columns.
+        columns: Feature names to validate.
+
+    Returns:
+        The feature block, numeric.
+
+    Raises:
+        ValueError: If a column is missing, or entirely null.
+    """
+    missing = [c for c in columns if c not in frame.columns]
+    if missing:
+        raise ValueError(f"Missing feature columns: {missing}")
+
+    features = frame[columns].apply(pd.to_numeric, errors="coerce")
+
+    empty = [c for c in columns if features[c].isna().all()]
+    if empty:
+        raise ValueError(
+            f"Feature columns are entirely null: {empty}. "
+            "These are most likely declared but never computed — either "
+            "implement them or drop them from FEATURE_COLUMNS."
+        )
+
+    constant = [c for c in columns if features[c].nunique(dropna=True) <= 1]
+    if constant:
+        logger.warning("Constant features carry no signal: %s", constant)
+
+    return features
+
+
 class InactivityBaseline:
     """Predicts abandonment from commit silence alone.
 
@@ -133,16 +172,18 @@ class GradientBoostedModel:
         import lightgbm as lgb
 
         columns = feature_columns or FEATURE_COLUMNS
+        features = _validate_features(train, columns)
+
         self.feature_columns = columns
         self._model = lgb.LGBMClassifier(**self.params)
-        self._model.fit(train[columns], train["is_abandoned"].astype(int))
+        self._model.fit(features, train["is_abandoned"].astype(int))
         logger.info("Trained on %d rows, %d features.", len(train), len(columns))
 
     def predict_proba(self, features: pd.DataFrame) -> np.ndarray:
         """Probability of abandonment within the horizon."""
         if self._model is None:
             raise RuntimeError("Call fit() before predict_proba().")
-        return self._model.predict_proba(features[self.feature_columns])
+        return self._model.predict_proba(_validate_features(features, self.feature_columns))
 
     def feature_importance(self) -> pd.Series:
         """Gain-based importance per feature, descending."""
