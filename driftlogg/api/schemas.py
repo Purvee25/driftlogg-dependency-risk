@@ -3,12 +3,12 @@
 from __future__ import annotations
 
 from datetime import datetime
-from enum import Enum
+from enum import StrEnum
 
 from pydantic import BaseModel, Field
 
 
-class RiskBand(str, Enum):
+class RiskBand(StrEnum):
     """Coarse risk buckets for display.
 
     Thresholds are deliberate: `operating_points.csv` from training shows the

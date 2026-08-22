@@ -11,7 +11,6 @@ collection through it rather than filtering by hand at each call site.
 
 from __future__ import annotations
 
-import statistics
 from dataclasses import asdict, dataclass, field
 from datetime import datetime, timedelta
 from typing import Any
@@ -196,9 +195,7 @@ def compute_commit_features(
     """
 
     def commit_time(commit: dict[str, Any]) -> datetime | None:
-        return parse_timestamp(
-            commit.get("commit", {}).get("author", {}).get("date")
-        )
+        return parse_timestamp(commit.get("commit", {}).get("author", {}).get("date"))
 
     in_window = [c for c in commits if (t := commit_time(c)) and window.start <= t < window.as_of]
     timestamps = [t for c in in_window if (t := commit_time(c))]
@@ -225,9 +222,7 @@ def compute_commit_features(
     recent_authors = [
         login
         for c in in_window
-        if (t := commit_time(c))
-        and t >= window.recent_start
-        and (login := author_login(c))
+        if (t := commit_time(c)) and t >= window.recent_start and (login := author_login(c))
     ]
     features.active_contributors_recent = len(set(recent_authors))
 

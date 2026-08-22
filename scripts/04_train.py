@@ -92,9 +92,7 @@ def main() -> None:
     print(baseline_report.summary())
 
     banner("2. FULL — every feature")
-    full_model, full_report = train_and_score(
-        split.train, split.test, FEATURE_COLUMNS, args.top_k
-    )
+    full_model, full_report = train_and_score(split.train, split.test, FEATURE_COLUMNS, args.top_k)
     print(full_report.summary())
 
     banner("3. NO POPULARITY — stars/forks/issues removed")

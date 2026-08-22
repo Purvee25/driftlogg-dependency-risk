@@ -1,0 +1,105 @@
+name: "DriftLogg dependency check"
+description: >-
+  Flags dependencies heading for abandonment before they are merged, using a
+  model trained on the decay patterns of packages that already went silent.
+author: "Purvee Singh"
+
+branding:
+  icon: activity
+  color: orange
+
+inputs:
+  manifest:
+    description: "Path to package.json or requirements.txt."
+    required: false
+    default: "package.json"
+  threshold:
+    description: "Risk score (0-1) at or above which the check fails."
+    required: false
+    default: "0.60"
+  changed-only:
+    description: >-
+      Only score dependencies this branch adds. Recommended: scoring every
+      dependency means one long-dead package fails the build forever, which
+      teaches people to ignore the check.
+    required: false
+    default: "true"
+  base-ref:
+    description: "Git ref to compare against when changed-only is true."
+    required: false
+    default: "origin/main"
+  warn-only:
+    description: "Annotate findings but never fail the build."
+    required: false
+    default: "false"
+  github-token:
+    description: >-
+      Token used for GitHub API reads. The default GITHUB_TOKEN is enough —
+      only public repository metadata is fetched.
+    required: false
+    default: ${{ github.token }}
+
+outputs:
+  flagged-count:
+    description: "How many dependencies met or exceeded the threshold."
+    value: ${{ steps.check.outputs.flagged-count }}
+
+runs:
+  using: composite
+  steps:
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: "3.11"
+
+    - name: Install DriftLogg
+      shell: bash
+      run: pip install --quiet "${{ github.action_path }}"
+
+    - name: Fetch base ref
+      if: inputs.changed-only == 'true'
+      shell: bash
+      # A shallow clone has no base branch to diff against, so the comparison
+      # would silently treat every dependency as new.
+      run: |
+        git fetch --no-tags --depth=1 origin \
+          "${{ inputs.base-ref }}#refs/remotes/origin/" 2>/dev/null || \
+        git fetch --no-tags origin || true
+
+    - name: Check dependencies
+      id: check
+      shell: bash
+      env:
+        DRIFTLOGG_GITHUB_TOKEN: ${{ inputs.github-token }}
+      run: |
+        args=(check "${{ inputs.manifest }}"
+              --threshold "${{ inputs.threshold }}"
+              --format github)
+
+        [[ "${{ inputs.changed-only }}" == "true" ]] && \
+          args+=(--changed-only --base-ref "${{ inputs.base-ref }}")
+        [[ "${{ inputs.warn-only }}" == "true" ]] && args+=(--warn-only)
+
+        set +e
+        python -m driftlogg "${args[@]}" | tee driftlogg-output.txt
+        status=${PIPESTATUS[0]}
+        set -e
+
+        flagged=$(grep -c '^::error\|^::warning' driftlogg-output.txt || true)
+        echo "flagged-count=${flagged}" >> "$GITHUB_OUTPUT"
+
+        {
+          echo "## DriftLogg dependency check"
+          echo
+          if [[ "${flagged}" -eq 0 ]]; then
+            echo "No dependencies flagged."
+          else
+            echo "\`${flagged}\` dependency(ies) flagged at or above the ${{ inputs.threshold }} threshold."
+            echo
+            echo '```'
+            sed 's/^::[a-z]* [^:]*:://' driftlogg-output.txt | grep -v '^$' | head -20
+            echo '```'
+          fi
+        } >> "$GITHUB_STEP_SUMMARY"
+
+        exit $status

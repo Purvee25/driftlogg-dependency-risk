@@ -120,9 +120,7 @@ def main() -> None:
     logger.info("Next: python scripts/02_fetch_repos.py")
 
     # Keep a readable copy for eyeballing during development.
-    (settings.interim_dir / "candidates_sample.json").write_text(
-        json.dumps(rows[:20], indent=2)
-    )
+    (settings.interim_dir / "candidates_sample.json").write_text(json.dumps(rows[:20], indent=2))
 
 
 if __name__ == "__main__":

@@ -144,8 +144,10 @@ class TestRepoResolution:
         assert repo_from_package_metadata({"repository": "https://github.com/a/b"}) == ("a", "b")
 
     def test_falls_back_to_homepage(self):
-        metadata = {"repository": {"url": "https://gitlab.com/x/y"},
-                    "homepage": "https://github.com/a/b"}
+        metadata = {
+            "repository": {"url": "https://gitlab.com/x/y"},
+            "homepage": "https://github.com/a/b",
+        }
 
         assert repo_from_package_metadata(metadata) == ("a", "b")
 

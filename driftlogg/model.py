@@ -85,7 +85,11 @@ def split_by_date(frame: pd.DataFrame, boundary: datetime) -> TemporalSplit:
     return TemporalSplit(train=train, test=test, boundary=boundary)
 
 
-def _validate_features(frame: pd.DataFrame, columns: list[str]) -> pd.DataFrame:
+def _validate_features(
+    frame: pd.DataFrame,
+    columns: list[str],
+    check_variance: bool = False,
+) -> pd.DataFrame:
     """Coerce the feature block to numeric, failing with a useful message.
 
     LightGBM rejects object-dtype columns with a traceback that bottoms out in
@@ -96,6 +100,9 @@ def _validate_features(frame: pd.DataFrame, columns: list[str]) -> pd.DataFrame:
     Args:
         frame: Table containing the feature columns.
         columns: Feature names to validate.
+        check_variance: Warn about constant columns. Training-time only — at
+            inference the frame usually holds a single row, where every column
+            is constant by definition and the warning is pure noise.
 
     Returns:
         The feature block, numeric.
@@ -117,9 +124,10 @@ def _validate_features(frame: pd.DataFrame, columns: list[str]) -> pd.DataFrame:
             "implement them or drop them from FEATURE_COLUMNS."
         )
 
-    constant = [c for c in columns if features[c].nunique(dropna=True) <= 1]
-    if constant:
-        logger.warning("Constant features carry no signal: %s", constant)
+    if check_variance and len(features) > 1:
+        constant = [c for c in columns if features[c].nunique(dropna=True) <= 1]
+        if constant:
+            logger.warning("Constant features carry no signal: %s", constant)
 
     return features
 
@@ -172,7 +180,7 @@ class GradientBoostedModel:
         import lightgbm as lgb
 
         columns = feature_columns or FEATURE_COLUMNS
-        features = _validate_features(train, columns)
+        features = _validate_features(train, columns, check_variance=True)
 
         self.feature_columns = columns
         self._model = lgb.LGBMClassifier(**self.params)

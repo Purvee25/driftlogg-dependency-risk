@@ -33,7 +33,7 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass
 from datetime import datetime, timedelta
-from enum import Enum
+from enum import StrEnum
 from typing import Any
 
 UNMAINTAINED_PATTERNS = (
@@ -63,7 +63,7 @@ DEFAULT_HORIZON_DAYS = HORIZON_DAYS
 """Backwards-compatible alias."""
 
 
-class LabelSource(str, Enum):
+class LabelSource(StrEnum):
     """How a label was determined."""
 
     SILENCE = "silence"
@@ -79,7 +79,7 @@ class LabelSource(str, Enum):
     """Maintainer wrote an unmaintained notice. Undated, so review by hand."""
 
 
-class ExclusionReason(str, Enum):
+class ExclusionReason(StrEnum):
     """Why a (package, date) pair cannot be used for training."""
 
     NOT_ALIVE = "not_alive"

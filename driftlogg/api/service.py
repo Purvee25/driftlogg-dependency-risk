@@ -14,6 +14,7 @@ from __future__ import annotations
 import logging
 import pickle
 from datetime import datetime
+from pathlib import Path
 
 import pandas as pd
 
@@ -89,20 +90,38 @@ class ScoringService:
         self._feature_columns = FEATURE_COLUMNS
         self._cache: dict[str, PackageRisk] = {}
 
-        path = model_path or (settings.processed_dir / "model.pkl")
+        candidates = (Path(model_path),) if model_path else settings.model_search_paths
+        for path in candidates:
+            if self._load_model(path):
+                return
+
+        logger.warning(
+            "No trained model found in %s — falling back to the inactivity "
+            "baseline. Run scripts/04_train.py to produce one.",
+            ", ".join(str(p) for p in candidates),
+        )
+
+    def _load_model(self, path: Path) -> bool:
+        """Attempt to load a pickled model bundle.
+
+        Returns:
+            True if the model loaded, False if the file was absent or unusable.
+        """
         try:
             with open(path, "rb") as handle:
                 bundle = pickle.load(handle)
-            self._model = bundle["model"]
-            self._feature_columns = bundle.get("features", FEATURE_COLUMNS)
-            logger.info("Loaded trained model from %s", path)
         except FileNotFoundError:
-            logger.warning(
-                "No trained model at %s — falling back to the inactivity baseline. "
-                "Run scripts/04_train.py to replace it.",
-                path,
-            )
-            self._model = None
+            return False
+        except Exception:
+            # A model pickled by a different library version is unusable but
+            # must not take the whole service down with it.
+            logger.warning("Could not load model at %s; skipping.", path, exc_info=True)
+            return False
+
+        self._model = bundle["model"]
+        self._feature_columns = bundle.get("features", FEATURE_COLUMNS)
+        logger.info("Loaded trained model from %s", path)
+        return True
 
     @property
     def model_kind(self) -> str:

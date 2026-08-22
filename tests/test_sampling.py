@@ -159,3 +159,48 @@ class TestPopularityFeatureList:
         assert "commit_velocity_ratio" in remaining
         assert "bus_factor_ratio" in remaining
         assert len(remaining) >= 8
+
+
+class TestFeatureValidation:
+    """The variance warning is a training-time check.
+
+    At inference the frame holds one row, where every column is constant by
+    definition — warning there printed all 18 feature names on every single
+    CLI invocation.
+    """
+
+    def test_single_row_inference_is_silent(self, caplog):
+        import pandas as pd
+
+        from driftlogg.model import _validate_features
+
+        frame = pd.DataFrame([{"a": 1.0, "b": 2.0}])
+
+        with caplog.at_level("WARNING"):
+            _validate_features(frame, ["a", "b"])
+
+        assert "Constant features" not in caplog.text
+
+    def test_training_warns_about_genuinely_constant_columns(self, caplog):
+        import pandas as pd
+
+        from driftlogg.model import _validate_features
+
+        frame = pd.DataFrame({"varies": [1.0, 2.0, 3.0], "flat": [7.0, 7.0, 7.0]})
+
+        with caplog.at_level("WARNING"):
+            _validate_features(frame, ["varies", "flat"], check_variance=True)
+
+        assert "flat" in caplog.text
+        assert "varies" not in caplog.text.split("Constant features")[-1]
+
+    def test_all_null_column_raises_with_a_useful_message(self):
+        import pandas as pd
+        import pytest as pt
+
+        from driftlogg.model import _validate_features
+
+        frame = pd.DataFrame({"good": [1.0, 2.0], "empty": [None, None]})
+
+        with pt.raises(ValueError, match="entirely null"):
+            _validate_features(frame, ["good", "empty"])

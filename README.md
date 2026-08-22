@@ -112,6 +112,43 @@ Open http://localhost:8000. Paste package names or upload a manifest. With no
 trained model on disk the service falls back to the baseline and says so rather
 than presenting baseline output as model output.
 
+## CI gate
+
+Fails a pull request that introduces a dependency heading for abandonment.
+
+```yaml
+- uses: actions/checkout@v4
+  with:
+    fetch-depth: 0          # changed-only needs the base branch
+- uses: purveesingh/driftlogg@main
+  with:
+    manifest: package.json
+    threshold: "0.60"
+    changed-only: "true"    # score only what this branch adds
+    warn-only: "true"       # advisory until the signal earns trust
+```
+
+Findings appear as inline annotations on the diff:
+
+```
+::error file=package.json,line=5::request: 80% chance of going unmaintained
+  — Commit rate down to 0% of its yearly average; No commits at all in the
+    past 1 year(s); No active contributors in the last 90 days
+```
+
+`changed-only` matters more than it looks. Scoring every dependency means one
+long-dead package fails the build forever, and a check that always fails gets
+disabled rather than heeded. Scoring only what the branch adds keeps the signal
+tied to something the author can act on.
+
+Locally:
+
+```bash
+driftlogg check package.json                  # exit 1 if anything is risky
+driftlogg check requirements.txt --warn-only  # report, always exit 0
+driftlogg check package.json --format json    # machine-readable
+```
+
 ## Tests
 
 ```bash
@@ -132,7 +169,10 @@ driftlogg/
 ├── model.py           # baseline + LightGBM, temporal split
 ├── sampling.py        # popularity matching to control the confound
 ├── evaluate.py        # PR-AUC, precision@k
+├── cli.py             # CI gate
 └── api/               # FastAPI service + dashboard
+action.yml             # composite GitHub Action
+models/model.pkl       # released model, shipped so CI is not baseline-only
 scripts/               # numbered pipeline stages
 tests/                 # leakage and label tests
 ```
@@ -202,4 +242,4 @@ all.
 - [x] Dashboard with per-package feature attributions
 - [x] Matched sampling to separate real popularity signal from artefact
 - [ ] Issue response-time features (needs per-issue comment timelines, sampled)
-- [ ] GitHub Action that fails CI on high-risk new dependencies
+- [x] GitHub Action that fails CI on high-risk new dependencies

@@ -46,6 +46,25 @@ class Settings(BaseSettings):
         """Model-ready feature tables."""
         return self.data_dir / "processed"
 
+    @property
+    def released_model_path(self) -> Path:
+        """The committed model, used when nothing has been trained locally.
+
+        Lives outside `data/` precisely so it escapes the gitignore: CI has no
+        training data, so without a checked-in model the GitHub Action would
+        quietly fall back to the baseline and report far less than it should.
+        """
+        return PROJECT_ROOT / "models" / "model.pkl"
+
+    @property
+    def model_search_paths(self) -> tuple[Path, ...]:
+        """Where to look for a model, most recent first.
+
+        A freshly trained model wins over the released one so local iteration
+        takes effect without a copy step.
+        """
+        return (self.processed_dir / "model.pkl", self.released_model_path)
+
     def ensure_dirs(self) -> None:
         """Create the data directories if they do not exist yet."""
         for directory in (self.raw_dir, self.interim_dir, self.processed_dir):

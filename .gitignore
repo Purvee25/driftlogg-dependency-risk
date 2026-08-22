@@ -4,6 +4,7 @@ data/interim/
 data/processed/
 *.parquet
 *.pkl
+!models/*.pkl   # the released model ships with the repo
 
 # Secrets
 .env

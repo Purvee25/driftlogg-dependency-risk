@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import json
 import re
-from enum import Enum
+from enum import StrEnum
 
 REQUIREMENT_RE = re.compile(r"^\s*([A-Za-z0-9._-]+)\s*(?:\[[^\]]+\])?\s*(?:[<>=!~;].*)?$")
 """Matches a requirement line, capturing the bare package name.
@@ -18,7 +18,7 @@ Handles extras (`pkg[extra]`), version specifiers, and environment markers.
 """
 
 
-class ManifestKind(str, Enum):
+class ManifestKind(StrEnum):
     """Supported manifest formats."""
 
     PACKAGE_JSON = "package.json"
