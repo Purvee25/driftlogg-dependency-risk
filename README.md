@@ -130,6 +130,7 @@ driftlogg/
 ├── labels.py          # what counts as abandoned
 ├── features.py        # leakage-safe feature extraction
 ├── model.py           # baseline + LightGBM, temporal split
+├── sampling.py        # popularity matching to control the confound
 ├── evaluate.py        # PR-AUC, precision@k
 └── api/               # FastAPI service + dashboard
 scripts/               # numbered pipeline stages
@@ -152,18 +153,53 @@ by construction rather than a distribution to optimise.
 Top features by gain: `days_since_last_commit`, `stars`, `fork_star_ratio`,
 `commits_trailing`, `open_issues_count`.
 
-**An honest caveat:** popularity features (`stars`, `forks`, `fork_star_ratio`)
-rank high. Some of that is real — a package with more contributors is genuinely
-less likely to go silent — but some is likely sampling artefact, since the
-positives and negatives were drawn from different sources (GitHub archived
-search versus npm search) whose popularity distributions differ. Confirming
-which requires a matched-sampling run, and until that is done the headline
-number should be read as an upper bound.
+### Was it just measuring popularity?
+
+`stars` and `fork_star_ratio` ranked high by gain, which is the signature of a
+confound: positives and negatives were drawn from different pools (GitHub
+archived-search versus npm search) that differ in popularity (median 902 stars
+versus 201) **and** in base rate (64% positive versus 27%). Popularity could
+therefore proxy for "which pool did this come from", and the pool predicts the
+label — because the archived pool was selected on the outcome.
+
+The raw correlation between stars and the label is only **r = -0.05**, so a
+linear check misses this entirely. A tree can still exploit it: split on stars
+to infer the pool, then apply the pool's base rate.
+
+Rather than leave it as a caveat, `scripts/04_train.py` measures it. Two
+controls: drop the popularity features outright, and downsample within star
+bins so every bin is class-balanced (`driftlogg/sampling.py`), which removes
+popularity's marginal information by construction.
+
+| Configuration | PR-AUC | base | ROC-AUC | P@20 |
+|---|---|---|---|---|
+| Baseline (180d silent) | 0.475 | 31.7% | 0.666 | 0.750 |
+| Full | 0.762 | 31.7% | 0.867 | 1.000 |
+| No popularity features | 0.697 | 31.7% | 0.842 | 0.900 |
+| **Popularity-matched** | **0.843** | 50.0% | **0.858** | 0.900 |
+
+Compare on **ROC-AUC**, which is base-rate independent — PR-AUC is not, and
+matching forces the base rate to 50%.
+
+- Dropping popularity costs **0.025** ROC-AUC.
+- Matching away the confound costs **0.009**.
+
+Both are small, so the model was **not** primarily riding the artefact. The
+decay features carry it: `days_since_last_commit` and `commits_trailing` remain
+the top two after matching.
+
+Popularity still ranks highly in the matched model even though matching removed
+its marginal signal — meaning it now contributes only through interactions
+(200 days of silence means something different for a 10k-star project than a
+50-star one), which is legitimate signal rather than sampling artefact.
+
+The shipped model is the matched one, since it cannot lean on the artefact at
+all.
 
 ## Roadmap
 
 - [x] FastAPI endpoint accepting `package.json` / `requirements.txt`
 - [x] Dashboard with per-package feature attributions
-- [ ] Matched sampling to separate real popularity signal from artefact
+- [x] Matched sampling to separate real popularity signal from artefact
 - [ ] Issue response-time features (needs per-issue comment timelines, sampled)
 - [ ] GitHub Action that fails CI on high-risk new dependencies
