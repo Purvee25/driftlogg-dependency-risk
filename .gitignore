@@ -1,5 +1,6 @@
 # Data — regenerate with the pipeline scripts, never commit
 data/raw/
+data/*.log
 data/interim/
 data/processed/
 *.parquet
