@@ -53,7 +53,7 @@ class EvaluationReport:
     def summary(self) -> str:
         """Human-readable block for logs and the README."""
         lead = (
-            f"{self.median_lead_time_days:.0f} days"
+            f"{self.median_lead_time_days:.0f} days (by construction)"
             if self.median_lead_time_days is not None
             else "n/a"
         )
