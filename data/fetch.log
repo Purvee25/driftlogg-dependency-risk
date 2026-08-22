@@ -1,0 +1,15 @@
+INFO Loaded 1100 live candidates.
+INFO Loaded 800 archived candidates.
+repos:   0%|          | 0/1900 [00:00<?, ?it/s]INFO HTTP Request: GET https://api.github.com/repos/react/react "HTTP/1.1 200 OK"
+INFO HTTP Request: GET https://api.github.com/repos/react/react/commits?since=2022-01-01T00%3A00%3A00Z&per_page=100&page=1 "HTTP/1.1 200 OK"
+INFO HTTP Request: GET https://api.github.com/repos/react/react/commits?since=2022-01-01T00%3A00%3A00Z&per_page=100&page=2 "HTTP/1.1 200 OK"
+INFO HTTP Request: GET https://api.github.com/repos/react/react/commits?since=2022-01-01T00%3A00%3A00Z&per_page=100&page=3 "HTTP/1.1 200 OK"
+INFO HTTP Request: GET https://api.github.com/repos/react/react/commits?since=2022-01-01T00%3A00%3A00Z&per_page=100&page=4 "HTTP/1.1 200 OK"
+INFO HTTP Request: GET https://api.github.com/repos/react/react/commits?since=2022-01-01T00%3A00%3A00Z&per_page=100&page=5 "HTTP/1.1 200 OK"
+INFO HTTP Request: GET https://api.github.com/repos/react/react/issues?state=all&sort=created&direction=desc&since=2022-01-01T00%3A00%3A00Z&per_page=100&page=1 "HTTP/1.1 200 OK"
+INFO HTTP Request: GET https://api.github.com/repos/react/react/issues?state=all&sort=created&direction=desc&since=2022-01-01T00%3A00%3A00Z&per_page=100&page=2 "HTTP/1.1 200 OK"
+INFO HTTP Request: GET https://api.github.com/repos/react/react/issues?state=all&sort=created&direction=desc&since=2022-01-01T00%3A00%3A00Z&per_page=100&page=3 "HTTP/1.1 200 OK"
+INFO HTTP Request: GET https://api.github.com/repos/react/react/releases?per_page=100&page=1 "HTTP/1.1 200 OK"
+INFO HTTP Request: GET https://api.github.com/repos/react/react/releases?per_page=100&page=2 "HTTP/1.1 200 OK"
+repos:   0%|          | 1/1900 [00:09<5:05:17,  9.65s/it]INFO HTTP Request: GET https://api.github.com/repos/recharts/react-smooth "HTTP/1.1 200 OK"
+INFO HTTP Request: GET https://api.github.com/repos/recharts/react-smooth/commits?since=2022-01-01T00%3A00%3A00Z&per_page=100&page=1 "HTTP/1.1 200 OK"

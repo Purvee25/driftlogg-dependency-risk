@@ -26,12 +26,39 @@ from driftlogg.config import settings
 logger = logging.getLogger(__name__)
 
 
+HISTORY_START = "2022-01-01T00:00:00Z"
+"""Earliest data any feature can need.
+
+The earliest prediction date is 2023-01-01 and the trailing window is 365 days,
+so nothing before 2022 is ever read. Bounding the request server-side keeps
+pagination short on long-lived repos.
+"""
+
+COMMIT_PAGES = 5
+ISSUE_PAGES = 3
+RELEASE_PAGES = 2
+"""Page caps, traded against request budget.
+
+At 5000 requests/hour the corpus size is bound by requests-per-repo, so these
+caps decide whether a full run takes 3 hours or 10. The cost is saturation:
+a repo with >500 commits since 2022 has `commits_trailing` capped. That
+compresses the top of the range but preserves the signal — the separation
+between a busy repo and a dead one survives intact, and every saturated repo
+is a negative anyway.
+"""
+
+
 def fetch_one(client: GitHubClient, owner: str, repo: str) -> dict | None:
-    """Collect the full payload set for one repository.
+    """Collect the payload set needed for feature extraction.
+
+    Note:
+        Contributors are deliberately not fetched. `features.py` derives
+        contributor counts and the bus factor from commit authors, so the
+        /contributors endpoint was pure request budget spent on nothing.
 
     Returns:
-        Repo metadata plus commits, issues, releases and contributors, or None
-        if the repository no longer exists.
+        Repo metadata plus commits, issues and releases, or None if the
+        repository no longer exists.
     """
     metadata = client.get_repo(owner, repo)
     if metadata is None:
@@ -39,10 +66,9 @@ def fetch_one(client: GitHubClient, owner: str, repo: str) -> dict | None:
 
     return {
         "repo": metadata,
-        "commits": client.get_commits(owner, repo),
-        "issues": client.get_issues(owner, repo),
-        "releases": client.get_releases(owner, repo),
-        "contributors": client.get_contributors(owner, repo),
+        "commits": client.get_commits(owner, repo, since=HISTORY_START, max_pages=COMMIT_PAGES),
+        "issues": client.get_issues(owner, repo, since=HISTORY_START, max_pages=ISSUE_PAGES),
+        "releases": client.get_releases(owner, repo, max_pages=RELEASE_PAGES),
     }
 
 
