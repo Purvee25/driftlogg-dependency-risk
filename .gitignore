@@ -5,7 +5,10 @@ data/interim/
 data/processed/
 *.parquet
 *.pkl
-!models/*.pkl   # the released model ships with the repo
+# The released model ships with the repo: CI has no training data, so
+# without it the GitHub Action would silently score with the baseline.
+# (gitignore has no inline comments — this must stay on its own line.)
+!models/*.pkl
 
 # Secrets
 .env
