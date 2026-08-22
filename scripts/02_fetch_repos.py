@@ -46,21 +46,61 @@ def fetch_one(client: GitHubClient, owner: str, repo: str) -> dict | None:
     }
 
 
+def load_candidates() -> pd.DataFrame:
+    """Merge the live and archived candidate pools.
+
+    Both sources are needed: script 01 supplies packages that are alive (the
+    negatives) and 01b supplies archived ones (the positives). Training on
+    either alone gives the model nothing to separate.
+
+    Returns:
+        Deduplicated candidates across both sources.
+
+    Raises:
+        SystemExit: If neither source has been collected yet.
+    """
+    sources = {
+        "live": settings.interim_dir / "candidates.parquet",
+        "archived": settings.interim_dir / "candidates_archived.parquet",
+    }
+
+    frames = []
+    for name, path in sources.items():
+        if path.exists():
+            frame = pd.read_parquet(path)
+            logger.info("Loaded %d %s candidates.", len(frame), name)
+            frames.append(frame)
+        else:
+            logger.warning("Missing %s candidates (%s).", name, path.name)
+
+    if not frames:
+        raise SystemExit(
+            "No candidates found. Run scripts/01_collect_candidates.py "
+            "and scripts/01b_collect_archived.py first."
+        )
+
+    if len(frames) == 1:
+        logger.warning(
+            "Only one candidate source present — expect a severe class imbalance. "
+            "Run both 01 and 01b before the full fetch."
+        )
+
+    merged = pd.concat(frames, ignore_index=True)
+    return merged.drop_duplicates(subset=["owner", "repo"])
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--limit", type=int, default=None, help="Only fetch the first N.")
+    parser.add_argument("--limit", type=int, default=None, help="Only fetch N (sampled).")
     args = parser.parse_args()
 
     logging.basicConfig(level=logging.INFO, format="%(levelname)s %(message)s")
     settings.ensure_dirs()
 
-    candidates_path = settings.interim_dir / "candidates.parquet"
-    if not candidates_path.exists():
-        raise SystemExit("No candidates found. Run scripts/01_collect_candidates.py first.")
-
-    candidates = pd.read_parquet(candidates_path)
+    candidates = load_candidates()
     if args.limit:
-        candidates = candidates.head(args.limit)
+        # Sample rather than head() so a smoke test still covers both sources.
+        candidates = candidates.sample(n=min(args.limit, len(candidates)), random_state=42)
 
     output_dir = settings.raw_dir / "packages"
     output_dir.mkdir(parents=True, exist_ok=True)

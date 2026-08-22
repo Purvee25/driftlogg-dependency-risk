@@ -26,6 +26,9 @@ MAX_PAGE_SIZE = 100
 RATE_LIMIT_BUFFER = 50
 """Stop and wait once this few requests remain, so parallel work doesn't tip us over."""
 
+SEARCH_RESULT_CAP = 1000
+"""GitHub returns at most 1000 results per search query, however many match."""
+
 
 class RateLimitedError(RuntimeError):
     """Raised when GitHub reports the hourly quota is exhausted."""
@@ -88,7 +91,13 @@ class GitHubClient:
         if remaining is None or reset_at is None:
             return
 
-        if int(remaining) > RATE_LIMIT_BUFFER:
+        # Scale the buffer to the endpoint's actual quota. Core allows 5000/hour
+        # but search only 30/minute, so a fixed buffer of 50 would sleep on every
+        # single search call.
+        quota = int(response.headers.get("x-ratelimit-limit", RATE_LIMIT_BUFFER * 4))
+        buffer = min(RATE_LIMIT_BUFFER, max(1, quota // 4))
+
+        if int(remaining) > buffer:
             return
 
         sleep_seconds = max(0, int(reset_at) - int(time.time())) + 1
@@ -199,3 +208,50 @@ class GitHubClient:
     def get_releases(self, owner: str, repo: str, max_pages: int = 3) -> list[dict[str, Any]]:
         """Published releases, newest first."""
         return self._paginate(f"/repos/{owner}/{repo}/releases", None, max_pages)
+
+    def search_repositories(
+        self,
+        query: str,
+        sort: str = "stars",
+        max_results: int = SEARCH_RESULT_CAP,
+    ) -> list[dict[str, Any]]:
+        """Search repositories.
+
+        The search endpoint wraps results in an object rather than returning a
+        bare list, and hard-caps any single query at 1000 results regardless of
+        how many matches exist. To collect more than that, partition the corpus
+        into slices (by star count or date) and issue one query per slice.
+
+        Args:
+            query: GitHub search qualifier string, e.g. "archived:true stars:>100".
+            sort: Sort field, or "" for best match.
+            max_results: Cap on results; silently limited to 1000 by the API.
+
+        Returns:
+            Matching repository payloads.
+        """
+        results: list[dict[str, Any]] = []
+        max_results = min(max_results, SEARCH_RESULT_CAP)
+
+        for page in range(1, (max_results // MAX_PAGE_SIZE) + 2):
+            params: dict[str, Any] = {
+                "q": query,
+                "per_page": MAX_PAGE_SIZE,
+                "page": page,
+            }
+            if sort:
+                params["sort"] = sort
+
+            payload = self._request("/search/repositories", params)
+            if not payload:
+                break
+
+            items = payload.get("items", [])
+            if not items:
+                break
+
+            results.extend(items)
+            if len(items) < MAX_PAGE_SIZE or len(results) >= max_results:
+                break
+
+        return results[:max_results]

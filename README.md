@@ -59,12 +59,19 @@ of 5,000. Create one at github.com/settings/tokens with `public_repo` scope.
 ## Pipeline
 
 ```bash
-python scripts/01_collect_candidates.py --limit 2000
-python scripts/02_fetch_repos.py --limit 50    # smoke test first
-python scripts/02_fetch_repos.py               # then the full run (hours)
+python scripts/01_collect_candidates.py --limit 2000   # living packages (negatives)
+python scripts/01b_collect_archived.py                 # archived repos (positives)
+python scripts/02_fetch_repos.py --limit 50            # smoke test first
+python scripts/02_fetch_repos.py                       # then the full run (hours)
 python scripts/03_build_dataset.py
 python scripts/04_train.py --boundary 2025-01-01
 ```
+
+Run **both** 01 and 01b. npm search is biased toward living packages — archived
+repos rank poorly and barely surface — so 01 alone yields almost no positive
+examples and the model has nothing to learn from. 01b goes after archived repos
+directly, partitioning by star count to work around GitHub's 1000-result cap
+per search query.
 
 Every API response is cached to disk, so step 2 is safe to interrupt and rerun.
 
