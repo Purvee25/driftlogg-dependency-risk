@@ -1,0 +1,55 @@
+"""Central configuration, loaded from environment or a local .env file."""
+
+from __future__ import annotations
+
+from pathlib import Path
+
+from pydantic_settings import BaseSettings, SettingsConfigDict
+
+PROJECT_ROOT = Path(__file__).resolve().parent.parent
+
+
+class Settings(BaseSettings):
+    """Runtime configuration.
+
+    Values come from the environment, falling back to a local `.env` file.
+    """
+
+    model_config = SettingsConfigDict(
+        env_file=PROJECT_ROOT / ".env",
+        env_prefix="DRIFTLOGG_",
+        extra="ignore",
+    )
+
+    github_token: str = ""
+    """Personal access token. Raises the API limit from 60 to 5000 req/hour."""
+
+    ecosystem: str = "npm"
+    """Which package registry to study. Pick one and stay there."""
+
+    data_dir: Path = PROJECT_ROOT / "data"
+    request_timeout_seconds: float = 30.0
+    max_retries: int = 5
+
+    @property
+    def raw_dir(self) -> Path:
+        """Untouched API responses. Never edited, only appended to."""
+        return self.data_dir / "raw"
+
+    @property
+    def interim_dir(self) -> Path:
+        """Parsed but not yet feature-engineered."""
+        return self.data_dir / "interim"
+
+    @property
+    def processed_dir(self) -> Path:
+        """Model-ready feature tables."""
+        return self.data_dir / "processed"
+
+    def ensure_dirs(self) -> None:
+        """Create the data directories if they do not exist yet."""
+        for directory in (self.raw_dir, self.interim_dir, self.processed_dir):
+            directory.mkdir(parents=True, exist_ok=True)
+
+
+settings = Settings()

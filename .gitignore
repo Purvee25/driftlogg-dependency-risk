@@ -1,0 +1,26 @@
+# Data — regenerate with the pipeline scripts, never commit
+data/raw/
+data/interim/
+data/processed/
+*.parquet
+*.pkl
+
+# Secrets
+.env
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+*.egg-info/
+.pytest_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# Notebooks
+.ipynb_checkpoints/
+
+# OS
+.DS_Store
