@@ -43,10 +43,6 @@ def main() -> None:
         raise SystemExit("No dataset found. Run scripts/03_build_dataset.py first.")
 
     frame = pd.read_parquet(dataset_path)
-    frame = frame.replace([float("inf"), float("-inf")], pd.NA)
-
-    # LightGBM handles NaN natively; the baseline needs a real number to compare.
-    frame["days_since_last_commit"] = frame["days_since_last_commit"].fillna(9999)
 
     split = split_by_date(frame, datetime.fromisoformat(args.boundary))
     logger.info("Split: %s", split.describe())

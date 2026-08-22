@@ -22,6 +22,15 @@ TRAILING_WINDOW_DAYS = 365
 RECENT_WINDOW_DAYS = 90
 """Short window, compared against the trailing window to derive trends."""
 
+NEVER_OBSERVED_DAYS = 99_999.0
+"""Stands in for "this never happened" in days-since features.
+
+A finite sentinel rather than `inf` for two reasons: infinities crash
+`DataFrame.replace` on certain frame shapes, and NaN would break the baseline —
+`nan >= 180` is False, so a repo with zero commits would read as healthy. A
+large finite value keeps comparisons and ordering correct everywhere.
+"""
+
 
 class LeakageError(RuntimeError):
     """Raised when a feature computation is handed data from after the cutoff."""
@@ -113,7 +122,7 @@ class PackageFeatures:
     commits_recent: int = 0
     commit_velocity_ratio: float = 0.0
     """Recent commit rate over trailing rate. Below 1.0 means slowing down."""
-    days_since_last_commit: float = float("inf")
+    days_since_last_commit: float = NEVER_OBSERVED_DAYS
 
     # People
     active_contributors_trailing: int = 0
@@ -134,7 +143,7 @@ class PackageFeatures:
 
     # Releases
     releases_trailing: int = 0
-    days_since_last_release: float = float("inf")
+    days_since_last_release: float = NEVER_OBSERVED_DAYS
 
     # Ecosystem
     stars: int = 0
@@ -163,9 +172,13 @@ def _safe_ratio(numerator: float, denominator: float, default: float = 0.0) -> f
 
 
 def _days_since(latest: datetime | None, as_of: datetime) -> float:
-    """Days between a timestamp and the cutoff; infinity when never."""
+    """Days between a timestamp and the cutoff.
+
+    Returns NEVER_OBSERVED_DAYS when the event never happened, so downstream
+    comparisons treat "never" as "very long ago" rather than as missing.
+    """
     if latest is None:
-        return float("inf")
+        return NEVER_OBSERVED_DAYS
     return (as_of - latest).total_seconds() / 86400.0
 
 

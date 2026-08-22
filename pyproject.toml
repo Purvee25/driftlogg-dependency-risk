@@ -20,6 +20,7 @@ dependencies = [
 api = [
     "fastapi>=0.111",
     "uvicorn[standard]>=0.30",
+    "python-multipart>=0.0.9",  # required by FastAPI for manifest uploads
 ]
 dev = [
     "pytest>=8.2",

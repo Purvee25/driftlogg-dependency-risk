@@ -12,6 +12,7 @@ from datetime import datetime, timedelta
 import pytest
 
 from driftlogg.features import (
+    NEVER_OBSERVED_DAYS,
     FeatureWindow,
     LeakageError,
     build_features,
@@ -116,7 +117,7 @@ class TestCommitFeatures:
         assert features.bus_factor_ratio == pytest.approx(1.0)
         assert features.active_contributors_trailing == 1
 
-    def test_no_commits_yields_infinite_silence(self):
+    def test_no_commits_yields_never_observed_sentinel(self):
         from driftlogg.features import PackageFeatures
 
         features = PackageFeatures(package="p", as_of=AS_OF)
@@ -124,7 +125,7 @@ class TestCommitFeatures:
         compute_commit_features([], FeatureWindow(as_of=AS_OF), features)
 
         assert features.commits_trailing == 0
-        assert features.days_since_last_commit == float("inf")
+        assert features.days_since_last_commit == NEVER_OBSERVED_DAYS
 
 
 class TestBuildFeatures:
@@ -152,6 +153,53 @@ class TestBuildFeatures:
         features = build_features("p", AS_OF, repo, [], [issue, pull_request], [])
 
         assert features.issues_opened_trailing == 1
+
+
+class TestDataFrameCompatibility:
+    """Regression tests for features reaching pandas and the models.
+
+    A package with no releases and no recorded response times used to emit
+    infinities into a single-row frame, which crashed `DataFrame.replace`
+    inside pandas' block manager — surfacing as a bare "IndexError: pop index
+    out of range" with nothing in the traceback pointing here.
+    """
+
+    def test_package_with_no_releases_survives_dataframe_round_trip(self):
+        import pandas as pd
+
+        repo = {"stargazers_count": 10, "forks_count": 2, "open_issues_count": 1}
+        features = build_features("p", AS_OF, repo, [], [], releases=[])
+
+        frame = pd.DataFrame([features.to_row()])
+
+        assert len(frame) == 1
+        assert frame["days_since_last_release"].iloc[0] == NEVER_OBSERVED_DAYS
+
+    def test_no_infinities_reach_the_frame(self):
+        import numpy as np
+        import pandas as pd
+
+        repo = {"stargazers_count": 0, "forks_count": 0, "open_issues_count": 0}
+        features = build_features("p", AS_OF, repo, [], [], [])
+
+        frame = pd.DataFrame([features.to_row()])
+        numeric = frame.select_dtypes(include=[np.number])
+
+        assert not np.isinf(numeric.to_numpy(dtype=float)).any()
+
+    def test_baseline_flags_a_package_that_never_committed(self):
+        """`nan >= 180` is False, so a NaN sentinel would read as healthy."""
+        import pandas as pd
+
+        from driftlogg.model import InactivityBaseline
+
+        repo = {"stargazers_count": 0, "forks_count": 0, "open_issues_count": 0}
+        features = build_features("p", AS_OF, repo, [], [], [])
+        frame = pd.DataFrame([features.to_row()])
+
+        score = InactivityBaseline().predict_proba(frame)[:, 1][0]
+
+        assert score == 1.0
 
 
 class TestParseTimestamp:
