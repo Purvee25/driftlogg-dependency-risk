@@ -3,344 +3,336 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>DriftLogg</title>
+<title>DriftLogg — dependency decay report</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;450;500&display=swap" rel="stylesheet">
 <style>
-  :root {
-    --bg: #fbfbfc;
-    --surface: #ffffff;
-    --surface-2: #f4f5f7;
-    --border: #e4e6ea;
-    --border-strong: #d3d6dc;
-    --text: #16181d;
-    --text-dim: #61656e;
-    --text-faint: #8b909a;
-    --accent: #2f6df0;
-    --accent-soft: rgba(47, 109, 240, .1);
-    --high: #d93a3a;
-    --high-soft: rgba(217, 58, 58, .1);
-    --elevated: #c47510;
-    --elevated-soft: rgba(196, 117, 16, .12);
-    --low: #17825c;
-    --low-soft: rgba(23, 130, 92, .1);
-    --unknown: #8b909a;
-    --shadow: 0 1px 2px rgba(16, 18, 22, .05), 0 4px 12px rgba(16, 18, 22, .04);
-    --mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace;
-  }
+/* ═══════════════════════════════════════════════════════════════════════════
+   DESIGN TOKENS
+
+   Thesis: this is a diagnostic instrument, not a dashboard. It reports a
+   forensic finding about decay. The visual language is borrowed from lab
+   readouts and printed ledgers — hairline rules instead of cards, tabular
+   figures, a warm paper ground, and oxidised pigments rather than UI primaries.
+
+   Rules the system holds to:
+     · No shadows. Depth comes from rules and weight, not elevation.
+     · No border radius above 2px. Nothing is a pill.
+     · Two faces, three roles: mono = display and data, sans = prose and labels.
+     · Colour is earned. Only risk carries hue; everything else is ink on paper.
+   ═════════════════════════════════════════════════════════════════════════ */
+:root {
+  /* ---- ground & ink ------------------------------------------------------ */
+  --paper:      #f7f4ee;   /* warm stock, not white — white reads as default */
+  --paper-sunk: #efebe2;   /* recessed fields */
+  --ink:        #17150f;
+  --ink-2:      #55503f;   /* secondary prose */
+  --ink-3:      #8b8472;   /* labels, annotations */
+  --rule:       #ddd7c9;   /* hairline */
+  --rule-firm:  #c2baa6;   /* structural rule */
+
+  /* ---- pigments ----------------------------------------------------------
+     Oxidised, not saturated. These are pigment names on purpose: they sit
+     next to each other without the RGB-primary clash of red/amber/green. */
+  --oxide:  #a33a1c;   /* high risk   — burnt iron */
+  --ochre:  #97701a;   /* elevated    — raw sienna */
+  --verdi:  #3f6b4f;   /* healthy     — verdigris */
+  --slate:  #8b8472;   /* unknown     */
+  --mark:   #1f4b6e;   /* interactive — prussian, never a UI blue */
+
+  /* ---- type --------------------------------------------------------------
+     IBM Plex (Mike Abbink / Bold Monday, 2017). Chosen for provenance and
+     technical character — a face drawn for engineering documentation, not a
+     neutral UI grotesque. Mono carries display and data; Sans carries prose.
+     Deliberately not Inter, and deliberately not a serif: reaching for a serif
+     to seem editorial is the tell this design is trying to avoid. */
+  --display: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+  --mono:    "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+  --sans:    "IBM Plex Sans", ui-sans-serif, -apple-system, "Segoe UI", sans-serif;
+
+  /* ---- measure ----------------------------------------------------------- */
+  --gap-1: 4px;  --gap-2: 8px;  --gap-3: 14px;
+  --gap-4: 22px; --gap-5: 36px; --gap-6: 58px;
+  --hair: 1px;
+}
+@media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
-    color-scheme: light;
+    /* Dark is NOT the light palette darkened. The warm paper cast that reads
+       as stock in light reads as muddy brown at low luminance, so the ground
+       goes near-neutral and the pigments gain chroma to survive it. */
+    --paper:      #101011;
+    --paper-sunk: #17171a;
+    --ink:        #e9e7e2;
+    --ink-2:      #9d9a94;
+    --ink-3:      #6c6963;
+    --rule:       #26262a;
+    --rule-firm:  #3b3b40;
+    --oxide:  #f0764c;
+    --ochre:  #e0ad42;
+    --verdi:  #6dbd8c;
+    --slate:  #6c6963;
+    --mark:   #82b4de;
   }
-  @media (prefers-color-scheme: dark) {
-    :root:not([data-theme="light"]) {
-      --bg: #0c0d10;
-      --surface: #141519;
-      --surface-2: #1b1d22;
-      --border: #26282f;
-      --border-strong: #343740;
-      --text: #eceef2;
-      --text-dim: #9aa0ab;
-      --text-faint: #6b7079;
-      --accent: #6a9bff;
-      --accent-soft: rgba(106, 155, 255, .12);
-      --high: #ff6b6b;
-      --high-soft: rgba(255, 107, 107, .12);
-      --elevated: #f0a640;
-      --elevated-soft: rgba(240, 166, 64, .12);
-      --low: #3ec99a;
-      --low-soft: rgba(62, 201, 154, .12);
-      --unknown: #6b7079;
-      --shadow: 0 1px 2px rgba(0, 0, 0, .3), 0 4px 16px rgba(0, 0, 0, .2);
-      color-scheme: dark;
-    }
-  }
-  :root[data-theme="dark"] {
-    --bg: #0c0d10;
-    --surface: #141519;
-    --surface-2: #1b1d22;
-    --border: #26282f;
-    --border-strong: #343740;
-    --text: #eceef2;
-    --text-dim: #9aa0ab;
-    --text-faint: #6b7079;
-    --accent: #6a9bff;
-    --accent-soft: rgba(106, 155, 255, .12);
-    --high: #ff6b6b;
-    --high-soft: rgba(255, 107, 107, .12);
-    --elevated: #f0a640;
-    --elevated-soft: rgba(240, 166, 64, .12);
-    --low: #3ec99a;
-    --low-soft: rgba(62, 201, 154, .12);
-    --unknown: #6b7079;
-    --shadow: 0 1px 2px rgba(0, 0, 0, .3), 0 4px 16px rgba(0, 0, 0, .2);
-    color-scheme: dark;
-  }
+}
+:root[data-theme="dark"] {
+  /* Dark is NOT the light palette darkened. The warm paper cast that reads
+     as stock in light reads as muddy brown at low luminance, so the ground
+     goes near-neutral and the pigments gain chroma to survive it. */
+  --paper:      #101011;
+  --paper-sunk: #17171a;
+  --ink:        #e9e7e2;
+  --ink-2:      #9d9a94;
+  --ink-3:      #6c6963;
+  --rule:       #26262a;
+  --rule-firm:  #3b3b40;
+  --oxide:  #f0764c;
+  --ochre:  #e0ad42;
+  --verdi:  #6dbd8c;
+  --slate:  #6c6963;
+  --mark:   #82b4de;
+}
 
-  * { box-sizing: border-box; }
-  html { -webkit-text-size-adjust: 100%; }
-  body {
-    margin: 0;
-    background: var(--bg);
-    color: var(--text);
-    font: 15px/1.55 -apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", system-ui, sans-serif;
-    -webkit-font-smoothing: antialiased;
-  }
-  .wrap { max-width: 860px; margin: 0 auto; padding: 0 20px 96px; }
+/* ═══════════════════════════════════════════════════════ base ═══ */
+* { box-sizing: border-box; }
+body {
+  margin: 0; background: var(--paper); color: var(--ink);
+  font: 400 15px/1.62 var(--sans);
+  -webkit-font-smoothing: antialiased;
+  font-variant-numeric: tabular-nums;
+}
+.sheet { max-width: 780px; margin: 0 auto; padding: 0 26px 96px; }
 
-  /* ---------------------------------------------------------------- header */
-  header {
-    display: flex; align-items: center; justify-content: space-between;
-    gap: 16px; padding: 28px 0 24px;
-  }
-  .brand { display: flex; align-items: center; gap: 11px; min-width: 0; }
-  .mark {
-    width: 30px; height: 30px; border-radius: 8px; flex: none;
-    background: linear-gradient(140deg, var(--accent), var(--high));
-    display: grid; place-items: center;
-  }
-  .mark svg { width: 17px; height: 17px; }
-  h1 { margin: 0; font-size: 17px; font-weight: 640; letter-spacing: -.01em; }
-  .tag { margin: 1px 0 0; font-size: 13px; color: var(--text-dim); }
-  .icon-btn {
-    flex: none; width: 34px; height: 34px; border-radius: 8px; cursor: pointer;
-    background: var(--surface); border: 1px solid var(--border); color: var(--text-dim);
-    display: grid; place-items: center; transition: background .15s, color .15s;
-  }
-  .icon-btn:hover { background: var(--surface-2); color: var(--text); }
-  .icon-btn svg { width: 16px; height: 16px; }
+/* label: the small-caps annotation used throughout */
+.label {
+  font: 500 10px/1 var(--sans); letter-spacing: .13em;
+  text-transform: uppercase; color: var(--ink-3);
+}
 
-  .notice {
-    display: none; gap: 9px; align-items: flex-start;
-    padding: 10px 13px; border-radius: 9px; margin-bottom: 18px;
-    background: var(--elevated-soft); border: 1px solid var(--elevated);
-    color: var(--elevated); font-size: 13px; line-height: 1.45;
-  }
-  .notice svg { width: 15px; height: 15px; flex: none; margin-top: 1px; }
+/* ═══════════════════════════════════════════════════ masthead ═══ */
+.masthead {
+  display: flex; align-items: flex-end; justify-content: space-between;
+  gap: var(--gap-4); padding: var(--gap-5) 0 var(--gap-3);
+  border-bottom: 2px solid var(--ink);
+}
+.masthead h1 {
+  margin: 0; font: 600 27px/1 var(--display); letter-spacing: -.045em;
+}
+.masthead h1 em { font-style: normal; font-weight: 400; color: var(--ink-2); }
+.masthead .sub {
+  margin: 9px 0 0; font: 400 13.5px/1.5 var(--sans); color: var(--ink-2);
+  max-width: 44ch;
+}
+.colophon { text-align: right; flex: none; }
+.colophon .label + .label { margin-top: 5px; }
+.theme {
+  margin-top: 9px; background: none; border: 0; padding: 0; cursor: pointer;
+  font: 500 10px/1 var(--sans); letter-spacing: .13em; text-transform: uppercase;
+  color: var(--ink-3); border-bottom: 1px solid var(--rule-firm);
+}
+.theme:hover { color: var(--ink); border-color: var(--ink); }
 
-  /* ----------------------------------------------------------------- panel */
-  .panel {
-    background: var(--surface); border: 1px solid var(--border);
-    border-radius: 13px; box-shadow: var(--shadow);
-  }
-  .panel + .panel { margin-top: 18px; }
-  .panel-pad { padding: 18px; }
+/* ═══════════════════════════════════════════════════ advisory ═══ */
+.advisory {
+  display: none; margin-top: var(--gap-4); padding: var(--gap-3) 0;
+  border-top: var(--hair) solid var(--ochre);
+  border-bottom: var(--hair) solid var(--ochre);
+  font: 400 13.5px/1.5 var(--sans); color: var(--ochre);
+}
+.advisory b { font: 500 10px/1 var(--sans); letter-spacing: .13em;
+              text-transform: uppercase; display: block; margin-bottom: 5px; }
 
-  .tabs { display: flex; gap: 3px; padding: 5px; background: var(--surface-2);
-          border-radius: 9px; margin-bottom: 15px; width: fit-content; }
-  .tab {
-    padding: 6px 13px; border-radius: 6px; cursor: pointer; font-size: 13.5px;
-    font-weight: 500; color: var(--text-dim); border: 0; background: transparent;
-    transition: background .15s, color .15s; font-family: inherit;
-  }
-  .tab[aria-selected="true"] { background: var(--surface); color: var(--text); box-shadow: var(--shadow); }
+/* ═══════════════════════════════════════════════════════ query ═══ */
+.query { padding: var(--gap-5) 0 var(--gap-4); }
+.modes { display: flex; gap: var(--gap-4); margin-bottom: var(--gap-3); }
+.mode {
+  background: none; border: 0; padding: 0 0 5px; cursor: pointer;
+  font: 500 10px/1 var(--sans); letter-spacing: .13em; text-transform: uppercase;
+  color: var(--ink-3); border-bottom: 2px solid transparent;
+}
+.mode[aria-selected="true"] { color: var(--ink); border-color: var(--ink); }
 
-  textarea {
-    width: 100%; min-height: 108px; resize: vertical; padding: 12px 13px;
-    background: var(--surface-2); color: var(--text);
-    border: 1px solid var(--border); border-radius: 9px;
-    font-family: var(--mono); font-size: 13px; line-height: 1.7;
-  }
-  textarea:focus, .drop:focus-within { outline: 2px solid var(--accent); outline-offset: 1px; }
-  textarea::placeholder { color: var(--text-faint); }
+textarea {
+  width: 100%; min-height: 116px; resize: vertical;
+  padding: var(--gap-3); background: var(--paper-sunk); color: var(--ink);
+  border: var(--hair) solid var(--rule); border-radius: 2px;
+  font: 400 13.5px/1.85 var(--mono);
+}
+textarea:focus, .intake:focus-within { outline: 2px solid var(--mark); outline-offset: 1px; }
+textarea::placeholder { color: var(--ink-3); }
 
-  .drop {
-    border: 1.5px dashed var(--border-strong); border-radius: 10px;
-    padding: 30px 20px; text-align: center; cursor: pointer;
-    transition: border-color .15s, background .15s;
-  }
-  .drop:hover, .drop.over { border-color: var(--accent); background: var(--accent-soft); }
-  .drop svg { width: 22px; height: 22px; color: var(--text-faint); margin-bottom: 7px; }
-  .drop p { margin: 0; font-size: 13.5px; color: var(--text-dim); }
-  .drop .hint { font-size: 12px; color: var(--text-faint); margin-top: 3px; }
-  .drop input { display: none; }
+.intake {
+  border: var(--hair) dashed var(--rule-firm); border-radius: 2px;
+  padding: var(--gap-5) var(--gap-4); text-align: center; cursor: pointer;
+  transition: border-color .12s, background .12s;
+}
+.intake:hover, .intake.over { border-color: var(--mark); background: var(--paper-sunk); }
+.intake p { margin: 0; font: 450 13.5px/1.5 var(--sans); color: var(--ink-2); }
+.intake .formats { margin-top: 5px; font: 400 12px/1 var(--mono); color: var(--ink-3); }
+.intake input { display: none; }
 
-  .presets { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 13px; align-items: center; }
-  .presets .lbl { font-size: 12px; color: var(--text-faint); margin-right: 2px; }
-  .chip {
-    padding: 4px 10px; border-radius: 20px; cursor: pointer; font-size: 12px;
-    background: var(--surface-2); border: 1px solid var(--border);
-    color: var(--text-dim); font-family: inherit; transition: all .15s;
-  }
-  .chip:hover { border-color: var(--accent); color: var(--accent); background: var(--accent-soft); }
+.specimens { display: flex; flex-wrap: wrap; align-items: baseline;
+             gap: var(--gap-2) var(--gap-3); margin-top: var(--gap-3); }
+.specimen {
+  background: none; border: 0; padding: 0; cursor: pointer;
+  font: 450 12.5px/1 var(--sans); color: var(--mark);
+  border-bottom: var(--hair) solid var(--rule-firm);
+}
+.specimen:hover { border-color: var(--mark); }
 
-  .actions { display: flex; align-items: center; gap: 13px; margin-top: 15px; flex-wrap: wrap; }
-  .btn {
-    display: inline-flex; align-items: center; gap: 7px;
-    background: var(--accent); color: #fff; border: 0; border-radius: 8px;
-    padding: 9px 17px; font-weight: 560; font-size: 14px; cursor: pointer;
-    font-family: inherit; transition: filter .15s;
-  }
-  .btn:hover:not(:disabled) { filter: brightness(1.08); }
-  .btn:disabled { opacity: .55; cursor: not-allowed; }
-  .btn svg { width: 15px; height: 15px; }
-  .muted { font-size: 12.5px; color: var(--text-faint); }
+.commit { display: flex; align-items: baseline; gap: var(--gap-3);
+          margin-top: var(--gap-4); flex-wrap: wrap; }
+.run {
+  background: var(--ink); color: var(--paper); border: 0; border-radius: 2px;
+  padding: 11px 24px; cursor: pointer;
+  font: 500 11px/1 var(--sans); letter-spacing: .13em; text-transform: uppercase;
+}
+.run:hover:not(:disabled) { background: var(--mark); }
+.run:disabled { opacity: .4; cursor: not-allowed; }
+.aside { font: 400 12.5px/1.45 var(--sans); color: var(--ink-3); }
 
-  /* --------------------------------------------------------------- results */
-  .summary { display: flex; align-items: center; gap: 26px; flex-wrap: wrap;
-             padding-bottom: 16px; border-bottom: 1px solid var(--border); }
-  .stat .n { font-size: 25px; font-weight: 680; letter-spacing: -.02em; line-height: 1.1; }
-  .stat .l { font-size: 10.5px; color: var(--text-faint); text-transform: uppercase;
-             letter-spacing: .07em; margin-top: 3px; font-weight: 560; }
-  .distribution { flex: 1; min-width: 170px; }
-  .dist-bar { display: flex; height: 7px; border-radius: 4px; overflow: hidden;
-              background: var(--surface-2); gap: 2px; }
-  .dist-bar span { transition: width .5s cubic-bezier(.4,0,.2,1); }
-  .dist-legend { display: flex; gap: 13px; margin-top: 8px; font-size: 11.5px;
-                 color: var(--text-dim); flex-wrap: wrap; }
-  .dot { display: inline-block; width: 7px; height: 7px; border-radius: 50%; margin-right: 5px; }
+/* ═══════════════════════════════════════════════════ findings ═══ */
+.findings { border-top: 2px solid var(--ink); padding-top: var(--gap-3); }
+.findings-head {
+  display: flex; align-items: baseline; justify-content: space-between;
+  gap: var(--gap-3); flex-wrap: wrap; margin-bottom: var(--gap-4);
+}
+.tally { display: flex; gap: var(--gap-5); }
+.tally .n { font: 500 31px/1 var(--display); letter-spacing: -.045em; }
+.tally .n.risk { color: var(--oxide); }
+.tally .label { margin-top: 6px; }
 
-  .rows { margin-top: 4px; }
-  .row {
-    display: block; padding: 14px 2px; border-bottom: 1px solid var(--border);
-    animation: rise .3s ease backwards;
-  }
-  .row:last-child { border-bottom: 0; }
-  @keyframes rise { from { opacity: 0; transform: translateY(5px); } }
+/* the distribution reads as a measured strip, square ends, hairline framed */
+.strip { display: flex; height: 9px; border: var(--hair) solid var(--rule-firm); }
+.strip span { transition: width .45s ease; }
+.strip-key { display: flex; gap: var(--gap-3); margin-top: 7px; flex-wrap: wrap; }
+.strip-key span { font: 400 12px/1 var(--mono); color: var(--ink-2); }
+.swatch { display: inline-block; width: 8px; height: 8px; margin-right: 5px; }
+.dist { min-width: 190px; flex: 1; }
 
-  .row-head { display: flex; align-items: baseline; gap: 10px; }
-  .pkg { font-family: var(--mono); font-size: 14px; font-weight: 560; }
-  .repo-link { font-size: 12px; color: var(--text-faint); text-decoration: none; }
-  .repo-link:hover { color: var(--accent); text-decoration: underline; }
-  .score { margin-left: auto; font-variant-numeric: tabular-nums;
-           font-weight: 680; font-size: 15px; }
-  .badge {
-    font-size: 10px; font-weight: 640; padding: 2px 7px; border-radius: 5px;
-    text-transform: uppercase; letter-spacing: .05em;
-  }
-  .meter { height: 4px; border-radius: 3px; background: var(--surface-2); margin: 9px 0 0; overflow: hidden; }
-  .meter i { display: block; height: 100%; border-radius: 3px; transition: width .55s cubic-bezier(.4,0,.2,1); }
+/* ── one finding ─────────────────────────────────────────────────── */
+.finding { padding: var(--gap-3) 0; border-top: var(--hair) solid var(--rule); }
+.finding:first-of-type { border-top: var(--hair) solid var(--rule-firm); }
+.line { display: flex; align-items: baseline; gap: var(--gap-2); }
+.name { font: 500 14.5px/1.3 var(--mono); letter-spacing: -.02em; }
+.origin { font: 400 12px/1.3 var(--mono); color: var(--ink-3);
+          text-decoration: none; border-bottom: var(--hair) solid transparent; }
+.origin:hover { color: var(--mark); border-color: var(--mark); }
+.reading { margin-left: auto; font: 500 17px/1 var(--display); letter-spacing: -.035em; }
 
-  .signals { list-style: none; margin: 9px 0 0; padding: 0;
-             display: flex; flex-wrap: wrap; gap: 5px; }
-  .signals li {
-    font-size: 12px; color: var(--text-dim); padding: 3px 9px;
-    background: var(--surface-2); border-radius: 5px; border: 1px solid var(--border);
-  }
-  .err { font-size: 12.5px; color: var(--text-faint); margin-top: 7px; font-style: italic; }
+/* gauge: baseline rule with a filled span and a terminal tick — a measurement,
+   not a progress bar. Square ends, hairline weight. */
+.gauge { position: relative; height: 3px; background: var(--rule); margin: 9px 0 0; }
+.gauge i { position: absolute; inset: 0 auto 0 0; display: block; transition: width .5s ease; }
+.gauge b { position: absolute; top: -3px; bottom: -3px; width: 2px;
+           transition: left .5s ease; }
+.ticks { display: flex; justify-content: space-between; margin-top: 4px; }
+.ticks span { font: 400 9px/1 var(--mono); color: var(--ink-3); }
 
-  .high { color: var(--high); }      .bg-high { background: var(--high); }
-  .elevated { color: var(--elevated); } .bg-elevated { background: var(--elevated); }
-  .low { color: var(--low); }        .bg-low { background: var(--low); }
-  .unknown { color: var(--unknown); } .bg-unknown { background: var(--unknown); }
-  .badge.high { background: var(--high-soft); }
-  .badge.elevated { background: var(--elevated-soft); }
-  .badge.low { background: var(--low-soft); }
+.evidence { margin: var(--gap-2) 0 0; padding: 0; list-style: none; }
+.evidence li {
+  font: 400 13px/1.55 var(--sans); color: var(--ink-2);
+  padding-left: 15px; position: relative;
+}
+.evidence li::before {
+  content: ""; position: absolute; left: 0; top: .68em;
+  width: 8px; height: var(--hair); background: var(--rule-firm);
+}
+.fault { font: 400 12.5px/1.5 var(--sans); color: var(--ink-3);
+         font-style: italic; margin-top: 6px; }
 
-  /* --------------------------------------------------------------- loading */
-  .progress { padding: 22px 18px; }
-  .progress-head { display: flex; align-items: center; gap: 9px; font-size: 13.5px;
-                   color: var(--text-dim); margin-bottom: 14px; }
-  .spin { width: 14px; height: 14px; border: 2px solid var(--border-strong);
-          border-top-color: var(--accent); border-radius: 50%; animation: spin .7s linear infinite; }
-  @keyframes spin { to { transform: rotate(360deg); } }
-  .queue { display: flex; flex-wrap: wrap; gap: 5px; }
-  .queue span {
-    font-family: var(--mono); font-size: 12px; padding: 3px 9px; border-radius: 5px;
-    background: var(--surface-2); color: var(--text-faint); border: 1px solid var(--border);
-    animation: pulse 1.5s ease-in-out infinite;
-  }
-  @keyframes pulse { 50% { opacity: .45; } }
-  .track { height: 3px; background: var(--surface-2); border-radius: 2px; margin-top: 15px; overflow: hidden; }
-  .track i { display: block; height: 100%; width: 35%; border-radius: 2px;
-             background: var(--accent); animation: slide 1.3s ease-in-out infinite; }
-  @keyframes slide { 0% { margin-left: -35%; } 100% { margin-left: 100%; } }
+.oxide { color: var(--oxide); } .bg-oxide { background: var(--oxide); }
+.ochre { color: var(--ochre); } .bg-ochre { background: var(--ochre); }
+.verdi { color: var(--verdi); } .bg-verdi { background: var(--verdi); }
+.slate { color: var(--slate); } .bg-slate { background: var(--slate); }
 
-  .empty { padding: 40px 20px; text-align: center; color: var(--text-faint); font-size: 14px; }
-  .empty.bad { color: var(--high); }
-  .footer { margin-top: 20px; text-align: center; font-size: 12px; color: var(--text-faint); }
-  .footer code { font-family: var(--mono); font-size: 11.5px; }
+/* ═══════════════════════════════════════════════════ progress ═══ */
+.working { border-top: 2px solid var(--ink); padding: var(--gap-4) 0; }
+.working .label { margin-bottom: var(--gap-3); }
+.roster { display: flex; flex-wrap: wrap; gap: var(--gap-1) var(--gap-3); }
+.roster span { font: 400 13px/1.6 var(--mono); color: var(--ink-3); }
+.roster span::after { content: " ·"; color: var(--rule-firm); }
+.roster span:last-child::after { content: ""; }
+.sweep { height: 2px; background: var(--rule); margin-top: var(--gap-3); overflow: hidden; }
+.sweep i { display: block; height: 100%; width: 28%; background: var(--ink);
+           animation: sweep 1.25s ease-in-out infinite; }
+@keyframes sweep { 0% { margin-left: -28%; } 100% { margin-left: 100%; } }
 
-  @media (max-width: 560px) {
-    .wrap { padding: 0 14px 72px; }
-    .summary { gap: 16px 20px; }
-    .stat .n { font-size: 21px; }
-    .distribution { flex-basis: 100%; }
+.void { border-top: 2px solid var(--ink); padding: var(--gap-5) 0;
+        font: 400 14px/1.5 var(--sans); color: var(--ink-3); }
+.void.fault { color: var(--oxide); }
 
-    /* The single-line row-head runs out of width on a phone: package names
-       break mid-word and the badge wraps onto two lines. Give the name and
-       score their own line, and drop the badge — the coloured meter and the
-       percentage already carry the same signal. */
-    .row-head { flex-wrap: wrap; row-gap: 2px; }
-    .pkg { flex: 1 1 auto; min-width: 0; overflow-wrap: anywhere; }
-    .score { flex: none; font-size: 14px; }
-    .repo-link {
-      flex-basis: 100%; order: 3;
-      overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
-    }
-    .badge { display: none; }
-  }
+.imprint { margin-top: var(--gap-4); padding-top: var(--gap-3);
+           border-top: var(--hair) solid var(--rule);
+           font: 400 12px/1.6 var(--mono); color: var(--ink-3); }
+
+/* ═══════════════════════════════════════════════════ narrow ═══ */
+@media (max-width: 620px) {
+  .sheet { padding: 0 18px 72px; }
+  .masthead { flex-direction: column; align-items: flex-start; gap: var(--gap-3); }
+  .masthead h1 { font-size: 22px; }
+  .colophon { text-align: left; }
+  .tally { gap: var(--gap-4); }
+  .tally .n { font-size: 25px; }
+  .dist { flex-basis: 100%; }
+  /* the finding line runs out of measure: give the origin its own line and
+     let the name and reading hold the first */
+  .line { flex-wrap: wrap; row-gap: 2px; }
+  .name { flex: 1 1 auto; min-width: 0; overflow-wrap: anywhere; }
+  .reading { flex: none; font-size: 15.5px; }
+  .origin { flex-basis: 100%; order: 3;
+            overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+}
 </style>
 </head>
 <body>
-<div class="wrap">
+<div class="sheet">
 
-  <header>
-    <div class="brand">
-      <div class="mark" aria-hidden="true">
-        <svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.4"
-             stroke-linecap="round" stroke-linejoin="round">
-          <path d="M3 6l4 12 4-16 4 12 2-5h4"/>
-        </svg>
-      </div>
-      <div>
-        <h1>DriftLogg</h1>
-        <p class="tag">Which dependencies are heading for abandonment</p>
-      </div>
+  <header class="masthead">
+    <div>
+      <h1>Drift<em>logg</em></h1>
+      <p class="sub">A decay report for the packages you depend on — which are
+         drifting toward abandonment, and on what evidence.</p>
     </div>
-    <button class="icon-btn" id="theme" title="Toggle theme" aria-label="Toggle theme">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
-           stroke-linecap="round" stroke-linejoin="round">
-        <path d="M21 12.8A9 9 0 1111.2 3a7 7 0 009.8 9.8z"/>
-      </svg>
-    </button>
+    <div class="colophon">
+      <div class="label">Forecast horizon · 90d</div>
+      <div class="label" id="engine">Engine · —</div>
+      <button class="theme" id="theme">Invert</button>
+    </div>
   </header>
 
-  <div class="notice" id="notice">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
-         stroke-linecap="round" stroke-linejoin="round">
-      <path d="M12 9v4M12 17h.01M10.3 3.9L1.8 18a2 2 0 001.7 3h17a2 2 0 001.7-3L13.7 3.9a2 2 0 00-3.4 0z"/>
-    </svg>
-    <span id="notice-text"></span>
-  </div>
+  <div class="advisory" id="advisory"><b>Advisory</b><span id="advisory-text"></span></div>
 
-  <div class="panel panel-pad">
-    <div class="tabs" role="tablist">
-      <button class="tab" role="tab" aria-selected="true" data-tab="names">Package names</button>
-      <button class="tab" role="tab" aria-selected="false" data-tab="file">Upload manifest</button>
+  <section class="query">
+    <div class="modes" role="tablist">
+      <button class="mode" role="tab" aria-selected="true" data-mode="names">By name</button>
+      <button class="mode" role="tab" aria-selected="false" data-mode="file">From manifest</button>
     </div>
 
     <div id="pane-names">
       <textarea id="names" spellcheck="false"
                 placeholder="express&#10;lodash&#10;request&#10;left-pad"></textarea>
-      <div class="presets">
-        <span class="lbl">Try:</span>
-        <button class="chip" data-fill="request&#10;gulp-util&#10;istanbul&#10;left-pad">Known-dead packages</button>
-        <button class="chip" data-fill="express&#10;react&#10;lodash&#10;moment">Popular packages</button>
-        <button class="chip" data-fill="express&#10;request&#10;lodash&#10;gulp-util&#10;react">Mixed</button>
+      <div class="specimens">
+        <span class="label">Specimens</span>
+        <button class="specimen" data-fill="request&#10;gulp-util&#10;istanbul&#10;left-pad">Known decayed</button>
+        <button class="specimen" data-fill="express&#10;react&#10;lodash&#10;moment">Widely used</button>
+        <button class="specimen" data-fill="express&#10;request&#10;lodash&#10;gulp-util&#10;react">Mixed</button>
       </div>
     </div>
 
     <div id="pane-file" hidden>
-      <label class="drop" id="drop" tabindex="0">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"
-             stroke-linecap="round" stroke-linejoin="round">
-          <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M17 8l-5-5-5 5M12 3v12"/>
-        </svg>
-        <p id="drop-label"><strong>Choose a file</strong> or drag it here</p>
-        <p class="hint">package.json · requirements.txt · pyproject.toml</p>
+      <label class="intake" id="intake" tabindex="0">
+        <p id="intake-label">Drop a manifest, or choose a file</p>
+        <p class="formats">package.json · requirements.txt · pyproject.toml</p>
         <input type="file" id="file" accept=".json,.txt,.toml">
       </label>
     </div>
 
-    <div class="actions">
-      <button class="btn" id="go">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"
-             stroke-linecap="round" stroke-linejoin="round">
-          <circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/>
-        </svg>
-        Analyze
-      </button>
-      <span class="muted" id="hint">Each package takes a few seconds to score.</span>
+    <div class="commit">
+      <button class="run" id="go">Run report</button>
+      <span class="aside">Each package is resolved and read live; allow a few seconds apiece.</span>
     </div>
-  </div>
+  </section>
 
   <div id="out" aria-live="polite"></div>
 </div>
@@ -348,140 +340,148 @@
 <script>
 const $ = (s) => document.querySelector(s);
 const BANDS = ["high", "elevated", "low", "unknown"];
-const BAND_LABEL = { high: "High risk", elevated: "Elevated", low: "Healthy", unknown: "Unknown" };
+const PIGMENT = { high: "oxide", elevated: "ochre", low: "verdi", unknown: "slate" };
+const READING = { high: "Decaying", elevated: "Drifting", low: "Sound", unknown: "Unread" };
 let mode = "names";
 
-/* ------------------------------------------------------------------ theme */
-const stored = localStorage.getItem("driftlogg-theme");
-if (stored) document.documentElement.dataset.theme = stored;
+/* ── theme ─────────────────────────────────────────────────────────── */
+const saved = localStorage.getItem("driftlogg-theme");
+if (saved) document.documentElement.dataset.theme = saved;
 $("#theme").onclick = () => {
   const dark = matchMedia("(prefers-color-scheme: dark)").matches;
-  const current = document.documentElement.dataset.theme || (dark ? "dark" : "light");
-  const next = current === "dark" ? "light" : "dark";
+  const now = document.documentElement.dataset.theme || (dark ? "dark" : "light");
+  const next = now === "dark" ? "light" : "dark";
   document.documentElement.dataset.theme = next;
   localStorage.setItem("driftlogg-theme", next);
 };
 
-/* ------------------------------------------------------------------- tabs */
-document.querySelectorAll(".tab").forEach((t) => {
-  t.onclick = () => {
-    document.querySelectorAll(".tab").forEach((x) => x.setAttribute("aria-selected", "false"));
-    t.setAttribute("aria-selected", "true");
-    mode = t.dataset.tab;
+/* ── modes ─────────────────────────────────────────────────────────── */
+document.querySelectorAll(".mode").forEach((m) => {
+  m.onclick = () => {
+    document.querySelectorAll(".mode").forEach((x) => x.setAttribute("aria-selected", "false"));
+    m.setAttribute("aria-selected", "true");
+    mode = m.dataset.mode;
     $("#pane-names").hidden = mode !== "names";
     $("#pane-file").hidden = mode !== "file";
   };
 });
-
-document.querySelectorAll(".chip").forEach((c) => {
-  c.onclick = () => { $("#names").value = c.dataset.fill; $("#names").focus(); };
+document.querySelectorAll(".specimen").forEach((s) => {
+  s.onclick = () => { $("#names").value = s.dataset.fill; $("#names").focus(); };
 });
 
-/* ------------------------------------------------------------- file input */
-const drop = $("#drop"), fileInput = $("#file");
-drop.addEventListener("keydown", (e) => {
+/* ── file intake ───────────────────────────────────────────────────── */
+const intake = $("#intake"), fileInput = $("#file");
+intake.addEventListener("keydown", (e) => {
   if (e.key === "Enter" || e.key === " ") { e.preventDefault(); fileInput.click(); }
 });
 ["dragenter", "dragover"].forEach((e) =>
-  drop.addEventListener(e, (ev) => { ev.preventDefault(); drop.classList.add("over"); }));
+  intake.addEventListener(e, (ev) => { ev.preventDefault(); intake.classList.add("over"); }));
 ["dragleave", "drop"].forEach((e) =>
-  drop.addEventListener(e, (ev) => { ev.preventDefault(); drop.classList.remove("over"); }));
-drop.addEventListener("drop", (ev) => {
-  if (ev.dataTransfer.files.length) { fileInput.files = ev.dataTransfer.files; showFile(); }
+  intake.addEventListener(e, (ev) => { ev.preventDefault(); intake.classList.remove("over"); }));
+intake.addEventListener("drop", (ev) => {
+  if (ev.dataTransfer.files.length) { fileInput.files = ev.dataTransfer.files; named(); }
 });
-fileInput.addEventListener("change", showFile);
-function showFile() {
+fileInput.addEventListener("change", named);
+function named() {
   const f = fileInput.files[0];
-  $("#drop-label").innerHTML = f ? `<strong>${esc(f.name)}</strong>` : "<strong>Choose a file</strong> or drag it here";
+  $("#intake-label").textContent = f ? f.name : "Drop a manifest, or choose a file";
 }
 
-/* ------------------------------------------------------------------ utils */
+/* ── helpers ───────────────────────────────────────────────────────── */
 const esc = (s) => String(s).replace(/[&<>"']/g, (c) =>
   ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 const pct = (x) => (x === null || x === undefined ? "—" : Math.round(x * 100) + "%");
-const names = () => $("#names").value.split(/[\n,]+/).map((s) => s.trim()).filter(Boolean);
+const listed = () => $("#names").value.split(/[\n,]+/).map((s) => s.trim()).filter(Boolean);
 
-async function checkHealth() {
+async function survey() {
   try {
     const h = await (await fetch("/health")).json();
-    const msgs = [];
+    $("#engine").textContent = "Engine · " + (h.model_loaded ? "lightgbm" : "baseline");
+    const notes = [];
     if (!h.model_loaded)
-      msgs.push("No trained model loaded — scores come from the inactivity baseline. Run scripts/04_train.py.");
+      notes.push("No trained model is loaded; readings come from the inactivity baseline rather than the model.");
     if (!h.github_token_present)
-      msgs.push("No GitHub token set; you will hit API rate limits quickly.");
-    if (msgs.length) {
-      $("#notice").style.display = "flex";
-      $("#notice-text").textContent = msgs.join(" ");
+      notes.push("No GitHub token is configured; the API rate limit will be reached quickly.");
+    if (notes.length) {
+      $("#advisory").style.display = "block";
+      $("#advisory-text").textContent = notes.join(" ");
     }
   } catch { /* advisory only */ }
 }
 
-/* ---------------------------------------------------------------- render */
-function loading(queue) {
+/* ── views ─────────────────────────────────────────────────────────── */
+function working(roster) {
   $("#out").innerHTML = `
-    <div class="panel progress">
-      <div class="progress-head"><span class="spin"></span>
-        Scoring ${queue.length} package${queue.length === 1 ? "" : "s"}…</div>
-      <div class="queue">${queue.map((n) => `<span>${esc(n)}</span>`).join("")}</div>
-      <div class="track"><i></i></div>
-    </div>`;
+    <section class="working">
+      <div class="label">Reading ${roster.length} package${roster.length === 1 ? "" : "s"}</div>
+      <div class="roster">${roster.map((n) => `<span>${esc(n)}</span>`).join("")}</div>
+      <div class="sweep"><i></i></div>
+    </section>`;
 }
 
-function render(data) {
-  const counts = Object.fromEntries(BANDS.map((b) => [b, data.results.filter((r) => r.band === b).length]));
+function report(data) {
+  const count = Object.fromEntries(BANDS.map((b) => [b, data.results.filter((r) => r.band === b).length]));
   const total = data.results.length || 1;
-  const seg = (b) => counts[b] ? `<span class="bg-${b}" style="width:${(counts[b] / total) * 100}%"></span>` : "";
-  const legend = BANDS.filter((b) => counts[b]).map((b) =>
-    `<span><i class="dot bg-${b}"></i>${counts[b]} ${BAND_LABEL[b].toLowerCase()}</span>`).join("");
+  const strip = BANDS.map((b) => count[b]
+    ? `<span class="bg-${PIGMENT[b]}" style="width:${(count[b] / total) * 100}%"></span>` : "").join("");
+  const key = BANDS.filter((b) => count[b]).map((b) =>
+    `<span><i class="swatch bg-${PIGMENT[b]}"></i>${count[b]} ${READING[b].toLowerCase()}</span>`).join("");
 
-  const rows = data.results.map((r, i) => `
-    <div class="row" style="animation-delay:${Math.min(i * 35, 350)}ms">
-      <div class="row-head">
-        <span class="pkg">${esc(r.package)}</span>
-        ${r.repo ? `<a class="repo-link" href="https://github.com/${esc(r.repo)}"
-             target="_blank" rel="noopener noreferrer">${esc(r.repo)} ↗</a>` : ""}
-        ${r.score !== null && r.score !== undefined
-            ? `<span class="badge ${r.band}">${BAND_LABEL[r.band]}</span>` : ""}
-        <span class="score ${r.band}">${pct(r.score)}</span>
+  const findings = data.results.map((r) => {
+    const p = PIGMENT[r.band];
+    const scored = r.score !== null && r.score !== undefined;
+    return `
+    <article class="finding">
+      <div class="line">
+        <span class="name">${esc(r.package)}</span>
+        ${r.repo ? `<a class="origin" href="https://github.com/${esc(r.repo)}"
+            target="_blank" rel="noopener noreferrer">${esc(r.repo)}</a>` : ""}
+        <span class="reading ${p}">${pct(r.score)}</span>
       </div>
-      ${r.score !== null && r.score !== undefined
-        ? `<div class="meter"><i class="bg-${r.band}" style="width:${Math.max(r.score * 100, 1.5)}%"></i></div>` : ""}
+      ${scored ? `<div class="gauge">
+          <i class="bg-${p}" style="width:${r.score * 100}%"></i>
+          <b class="bg-${p}" style="left:calc(${r.score * 100}% - 1px)"></b>
+        </div>` : ""}
       ${r.reasons.length
-        ? `<ul class="signals">${r.reasons.map((x) => `<li>${esc(x.label)}</li>`).join("")}</ul>` : ""}
-      ${r.error ? `<div class="err">${esc(r.error)}</div>` : ""}
-    </div>`).join("");
+        ? `<ul class="evidence">${r.reasons.map((x) => `<li>${esc(x.label)}</li>`).join("")}</ul>` : ""}
+      ${r.error ? `<p class="fault">${esc(r.error)}</p>` : ""}
+    </article>`;
+  }).join("");
 
   $("#out").innerHTML = `
-    <div class="panel panel-pad">
-      <div class="summary">
-        <div class="stat"><div class="n">${data.total}</div><div class="l">Analyzed</div></div>
-        <div class="stat"><div class="n high">${counts.high}</div><div class="l">High risk</div></div>
-        <div class="stat"><div class="n">${data.horizon_days}d</div><div class="l">Horizon</div></div>
-        <div class="distribution">
-          <div class="dist-bar">${BANDS.map(seg).join("")}</div>
-          <div class="dist-legend">${legend}</div>
+    <section class="findings">
+      <div class="findings-head">
+        <div class="tally">
+          <div><div class="n">${data.total}</div><div class="label">Read</div></div>
+          <div><div class="n risk">${count.high}</div><div class="label">Decaying</div></div>
+        </div>
+        <div class="dist">
+          <div class="strip">${strip}</div>
+          <div class="strip-key">${key}</div>
+          <div class="ticks"><span>0%</span><span>50%</span><span>100%</span></div>
         </div>
       </div>
-      <div class="rows">${rows}</div>
-    </div>
-    <div class="footer">Scored by <code>${esc(data.model_kind)}</code> ·
-      probability of going unmaintained within ${data.horizon_days} days</div>`;
+      ${findings}
+      <p class="imprint">Readings are the modelled probability that a package
+        records no commits at all through a 180-day window opening
+        ${data.horizon_days} days from today. Engine: ${esc(data.model_kind)}.</p>
+    </section>`;
 }
 
-function fail(msg) {
-  $("#out").innerHTML = `<div class="panel empty bad">${esc(msg)}</div>`;
+function fault(msg) {
+  $("#out").innerHTML = `<section class="void fault">${esc(msg)}</section>`;
 }
 
-/* ---------------------------------------------------------------- action */
+/* ── run ───────────────────────────────────────────────────────────── */
 $("#go").onclick = async () => {
   const btn = $("#go");
   btn.disabled = true;
   try {
     let res;
     if (mode === "names") {
-      const packages = names();
-      if (!packages.length) throw new Error("Enter at least one package name.");
-      loading(packages);
+      const packages = listed();
+      if (!packages.length) throw new Error("Name at least one package to read.");
+      working(packages);
       res = await fetch("/score", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -490,18 +490,18 @@ $("#go").onclick = async () => {
     } else {
       const f = fileInput.files[0];
       if (!f) throw new Error("Choose a manifest file first.");
-      loading([f.name]);
+      working([f.name]);
       const fd = new FormData();
       fd.append("file", f);
       res = await fetch("/score/manifest", { method: "POST", body: fd });
     }
     if (!res.ok) {
       const err = await res.json().catch(() => ({ detail: res.statusText }));
-      throw new Error(err.detail || "Request failed.");
+      throw new Error(err.detail || "The request could not be completed.");
     }
-    render(await res.json());
+    report(await res.json());
   } catch (e) {
-    fail(e.message);
+    fault(e.message);
   } finally {
     btn.disabled = false;
   }
@@ -511,7 +511,7 @@ $("#names").addEventListener("keydown", (e) => {
   if ((e.metaKey || e.ctrlKey) && e.key === "Enter") $("#go").click();
 });
 
-checkHealth();
+survey();
 </script>
 </body>
 </html>
