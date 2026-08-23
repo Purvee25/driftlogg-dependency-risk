@@ -20,7 +20,7 @@ import pandas as pd
 
 from driftlogg.api.schemas import FeatureContribution, PackageRisk, RiskBand
 from driftlogg.collect import GitHubClient
-from driftlogg.collect.registry import NpmClient
+from driftlogg.collect.registry import Ecosystem, resolver_for
 from driftlogg.config import settings
 from driftlogg.features import (
     FEATURE_COLUMNS,
@@ -132,12 +132,20 @@ class ScoringService:
     def model_loaded(self) -> bool:
         return self._model is not None
 
-    def score_packages(self, names: list[str], as_of: datetime | None = None) -> list[PackageRisk]:
+    def score_packages(
+        self,
+        names: list[str],
+        as_of: datetime | None = None,
+        ecosystem: Ecosystem = Ecosystem.NPM,
+    ) -> list[PackageRisk]:
         """Score a list of package names.
 
         Args:
             names: Package names to score.
             as_of: Scoring date; defaults to now.
+            ecosystem: Which registry to resolve names against. Getting this
+                wrong resolves to an unrelated project of the same name — see
+                the note in driftlogg/collect/registry.py.
 
         Returns:
             One result per input name, in the same order. Failures are returned
@@ -147,14 +155,17 @@ class ScoringService:
         as_of = as_of or datetime.utcnow()
         results: list[PackageRisk] = []
 
-        with GitHubClient() as github, NpmClient() as npm:
+        # Cache keys carry the ecosystem: the same name means different
+        # packages in different registries.
+        with GitHubClient() as github, resolver_for(ecosystem) as registry:
             for name in names:
-                if name in self._cache:
-                    results.append(self._cache[name])
+                key = f"{ecosystem.value}:{name}"
+                if key in self._cache:
+                    results.append(self._cache[key])
                     continue
 
-                risk = self._score_one(name, as_of, github, npm)
-                self._cache[name] = risk
+                risk = self._score_one(name, as_of, github, registry)
+                self._cache[key] = risk
                 results.append(risk)
 
         return results
@@ -164,11 +175,11 @@ class ScoringService:
         name: str,
         as_of: datetime,
         github: GitHubClient,
-        npm: NpmClient,
+        registry,
     ) -> PackageRisk:
         """Score a single package, converting any failure into a result."""
         try:
-            resolved = npm.resolve_repo(name)
+            resolved = registry.resolve_repo(name)
             if resolved is None:
                 return PackageRisk(package=name, error="No GitHub repository found")
 

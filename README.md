@@ -80,7 +80,9 @@ cp .env.example .env   # then add your GitHub token
 ```
 
 A token is effectively required: without one you get 60 requests/hour instead
-of 5,000. Create one at github.com/settings/tokens with `public_repo` scope.
+of 5,000. Create one at github.com/settings/tokens and tick **no scopes at
+all** — every read is public data, so none are needed, and an unscoped token
+that leaks cannot touch anything.
 
 ## Pipeline
 
@@ -120,9 +122,9 @@ Fails a pull request that introduces a dependency heading for abandonment.
 - uses: actions/checkout@v4
   with:
     fetch-depth: 0          # changed-only needs the base branch
-- uses: purveesingh/driftlogg@main
+- uses: Purvee25/driftlogg-dependency-risk@main
   with:
-    manifest: package.json
+    manifest: pyproject.toml      # or package.json / requirements.txt
     threshold: "0.60"
     changed-only: "true"    # score only what this branch adds
     warn-only: "true"       # advisory until the signal earns trust
