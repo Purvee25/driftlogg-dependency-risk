@@ -3,336 +3,373 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>DriftLogg — dependency decay report</title>
+<title>DriftLogg — dependency risk</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;450;500&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
 <style>
-/* ═══════════════════════════════════════════════════════════════════════════
-   DESIGN TOKENS
+/* ───────────────────────────────────────────────────────────────────────────
+   Tokens
 
-   Thesis: this is a diagnostic instrument, not a dashboard. It reports a
-   forensic finding about decay. The visual language is borrowed from lab
-   readouts and printed ledgers — hairline rules instead of cards, tabular
-   figures, a warm paper ground, and oxidised pigments rather than UI primaries.
+   Light is the default and the design target. Dark is opt-in only — there is
+   deliberately no prefers-color-scheme rule, so the page never flips to dark
+   on its own.
 
-   Rules the system holds to:
-     · No shadows. Depth comes from rules and weight, not elevation.
-     · No border radius above 2px. Nothing is a pill.
-     · Two faces, three roles: mono = display and data, sans = prose and labels.
-     · Colour is earned. Only risk carries hue; everything else is ink on paper.
-   ═════════════════════════════════════════════════════════════════════════ */
+   Inter for interface and prose, JetBrains Mono for package names, repository
+   paths and figures. This is the conventional pairing for developer tooling,
+   which is the right call for a tool developers are meant to trust on sight.
+   ───────────────────────────────────────────────────────────────────────── */
 :root {
-  /* ---- ground & ink ------------------------------------------------------ */
-  --paper:      #f7f4ee;   /* warm stock, not white — white reads as default */
-  --paper-sunk: #efebe2;   /* recessed fields */
-  --ink:        #17150f;
-  --ink-2:      #55503f;   /* secondary prose */
-  --ink-3:      #8b8472;   /* labels, annotations */
-  --rule:       #ddd7c9;   /* hairline */
-  --rule-firm:  #c2baa6;   /* structural rule */
+  --bg:          #ffffff;
+  --bg-subtle:   #fafafa;
+  --bg-sunken:   #f4f4f5;
+  --border:      #e8e8ea;
+  --border-firm: #d5d5d8;
 
-  /* ---- pigments ----------------------------------------------------------
-     Oxidised, not saturated. These are pigment names on purpose: they sit
-     next to each other without the RGB-primary clash of red/amber/green. */
-  --oxide:  #a33a1c;   /* high risk   — burnt iron */
-  --ochre:  #97701a;   /* elevated    — raw sienna */
-  --verdi:  #3f6b4f;   /* healthy     — verdigris */
-  --slate:  #8b8472;   /* unknown     */
-  --mark:   #1f4b6e;   /* interactive — prussian, never a UI blue */
+  --text:   #18181b;
+  --text-2: #5b5b63;
+  --text-3: #97979f;
 
-  /* ---- type --------------------------------------------------------------
-     IBM Plex (Mike Abbink / Bold Monday, 2017). Chosen for provenance and
-     technical character — a face drawn for engineering documentation, not a
-     neutral UI grotesque. Mono carries display and data; Sans carries prose.
-     Deliberately not Inter, and deliberately not a serif: reaching for a serif
-     to seem editorial is the tell this design is trying to avoid. */
-  --display: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
-  --mono:    "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
-  --sans:    "IBM Plex Sans", ui-sans-serif, -apple-system, "Segoe UI", sans-serif;
+  --brand:      #2b5cd9;
+  --brand-soft: #eef2fd;
 
-  /* ---- measure ----------------------------------------------------------- */
-  --gap-1: 4px;  --gap-2: 8px;  --gap-3: 14px;
-  --gap-4: 22px; --gap-5: 36px; --gap-6: 58px;
-  --hair: 1px;
-}
-@media (prefers-color-scheme: dark) {
-  :root:not([data-theme="light"]) {
-    /* Dark is NOT the light palette darkened. The warm paper cast that reads
-       as stock in light reads as muddy brown at low luminance, so the ground
-       goes near-neutral and the pigments gain chroma to survive it. */
-    --paper:      #101011;
-    --paper-sunk: #17171a;
-    --ink:        #e9e7e2;
-    --ink-2:      #9d9a94;
-    --ink-3:      #6c6963;
-    --rule:       #26262a;
-    --rule-firm:  #3b3b40;
-    --oxide:  #f0764c;
-    --ochre:  #e0ad42;
-    --verdi:  #6dbd8c;
-    --slate:  #6c6963;
-    --mark:   #82b4de;
-  }
+  --danger:      #cf3434;
+  --danger-soft: #fdeeee;
+  --warn:        #b4690e;
+  --warn-soft:   #fdf3e7;
+  --ok:          #17864a;
+  --ok-soft:     #ecf7f0;
+  --neutral:     #97979f;
+
+  --r-sm: 5px;
+  --r-md: 8px;
+  --r-lg: 11px;
+
+  --ui:   "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+  --mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+
+  --shadow-sm: 0 1px 2px rgba(16, 24, 40, .04);
+  --shadow-md: 0 1px 3px rgba(16, 24, 40, .07), 0 1px 2px rgba(16, 24, 40, .04);
 }
 :root[data-theme="dark"] {
-  /* Dark is NOT the light palette darkened. The warm paper cast that reads
-     as stock in light reads as muddy brown at low luminance, so the ground
-     goes near-neutral and the pigments gain chroma to survive it. */
-  --paper:      #101011;
-  --paper-sunk: #17171a;
-  --ink:        #e9e7e2;
-  --ink-2:      #9d9a94;
-  --ink-3:      #6c6963;
-  --rule:       #26262a;
-  --rule-firm:  #3b3b40;
-  --oxide:  #f0764c;
-  --ochre:  #e0ad42;
-  --verdi:  #6dbd8c;
-  --slate:  #6c6963;
-  --mark:   #82b4de;
+  --bg:          #0f1011;
+  --bg-subtle:   #151618;
+  --bg-sunken:   #1c1d20;
+  --border:      #27282c;
+  --border-firm: #38393e;
+
+  --text:   #ededee;
+  --text-2: #a1a2a7;
+  --text-3: #6f7075;
+
+  --brand:      #6e9bf5;
+  --brand-soft: #17223a;
+
+  --danger:      #f0736b;
+  --danger-soft: #2d1a1a;
+  --warn:        #e0a548;
+  --warn-soft:   #2c2116;
+  --ok:          #4fbd82;
+  --ok-soft:     #14241d;
+  --neutral:     #6f7075;
+
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, .3);
+  --shadow-md: 0 1px 3px rgba(0, 0, 0, .35), 0 1px 2px rgba(0, 0, 0, .25);
+  color-scheme: dark;
 }
 
-/* ═══════════════════════════════════════════════════════ base ═══ */
+/* ─────────────────────────────────────────────────────────────── base ─── */
 * { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; }
 body {
-  margin: 0; background: var(--paper); color: var(--ink);
-  font: 400 15px/1.62 var(--sans);
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font: 400 15px/1.6 var(--ui);
   -webkit-font-smoothing: antialiased;
-  font-variant-numeric: tabular-nums;
 }
-.sheet { max-width: 780px; margin: 0 auto; padding: 0 26px 96px; }
+.page { max-width: 800px; margin: 0 auto; padding: 0 24px 88px; }
+::selection { background: var(--brand-soft); }
 
-/* label: the small-caps annotation used throughout */
-.label {
-  font: 500 10px/1 var(--sans); letter-spacing: .13em;
-  text-transform: uppercase; color: var(--ink-3);
+/* ───────────────────────────────────────────────────────────── header ─── */
+.top {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 20px; padding: 20px 0; border-bottom: 1px solid var(--border);
+  margin-bottom: 38px;
 }
+.logo { display: flex; align-items: center; gap: 10px; }
+.logo-box {
+  width: 27px; height: 27px; border-radius: var(--r-sm); flex: none;
+  background: var(--text); display: grid; place-items: center;
+}
+.logo-box svg { width: 16px; height: 16px; color: var(--bg); }
+.logo span { font-weight: 600; font-size: 15px; letter-spacing: -.012em; }
+.top-right { display: flex; align-items: center; gap: 10px; }
+.engine {
+  font: 500 11px/1 var(--mono); color: var(--text-3);
+  padding: 6px 8px; background: var(--bg-subtle);
+  border: 1px solid var(--border); border-radius: var(--r-sm);
+}
+.ghost {
+  display: grid; place-items: center; width: 30px; height: 30px;
+  border-radius: var(--r-sm); cursor: pointer; color: var(--text-2);
+  background: transparent; border: 1px solid var(--border);
+}
+.ghost:hover { background: var(--bg-subtle); color: var(--text); }
+.ghost svg { width: 15px; height: 15px; }
 
-/* ═══════════════════════════════════════════════════ masthead ═══ */
-.masthead {
-  display: flex; align-items: flex-end; justify-content: space-between;
-  gap: var(--gap-4); padding: var(--gap-5) 0 var(--gap-3);
-  border-bottom: 2px solid var(--ink);
+/* ────────────────────────────────────────────────────────────── intro ─── */
+.intro { margin-bottom: 24px; }
+.intro h1 {
+  margin: 0 0 8px; font-size: 26px; font-weight: 640;
+  letter-spacing: -.028em; line-height: 1.2;
 }
-.masthead h1 {
-  margin: 0; font: 600 27px/1 var(--display); letter-spacing: -.045em;
-}
-.masthead h1 em { font-style: normal; font-weight: 400; color: var(--ink-2); }
-.masthead .sub {
-  margin: 9px 0 0; font: 400 13.5px/1.5 var(--sans); color: var(--ink-2);
-  max-width: 44ch;
-}
-.colophon { text-align: right; flex: none; }
-.colophon .label + .label { margin-top: 5px; }
-.theme {
-  margin-top: 9px; background: none; border: 0; padding: 0; cursor: pointer;
-  font: 500 10px/1 var(--sans); letter-spacing: .13em; text-transform: uppercase;
-  color: var(--ink-3); border-bottom: 1px solid var(--rule-firm);
-}
-.theme:hover { color: var(--ink); border-color: var(--ink); }
+.intro p { margin: 0; color: var(--text-2); font-size: 14.5px; max-width: 62ch; }
 
-/* ═══════════════════════════════════════════════════ advisory ═══ */
-.advisory {
-  display: none; margin-top: var(--gap-4); padding: var(--gap-3) 0;
-  border-top: var(--hair) solid var(--ochre);
-  border-bottom: var(--hair) solid var(--ochre);
-  font: 400 13.5px/1.5 var(--sans); color: var(--ochre);
+.alert {
+  display: none; gap: 9px; align-items: flex-start; margin-bottom: 18px;
+  padding: 11px 13px; border-radius: var(--r-md); font-size: 13.5px;
+  background: var(--warn-soft); border: 1px solid var(--warn); color: var(--warn);
 }
-.advisory b { font: 500 10px/1 var(--sans); letter-spacing: .13em;
-              text-transform: uppercase; display: block; margin-bottom: 5px; }
+.alert svg { width: 15px; height: 15px; flex: none; margin-top: 2px; }
 
-/* ═══════════════════════════════════════════════════════ query ═══ */
-.query { padding: var(--gap-5) 0 var(--gap-4); }
-.modes { display: flex; gap: var(--gap-4); margin-bottom: var(--gap-3); }
-.mode {
-  background: none; border: 0; padding: 0 0 5px; cursor: pointer;
-  font: 500 10px/1 var(--sans); letter-spacing: .13em; text-transform: uppercase;
-  color: var(--ink-3); border-bottom: 2px solid transparent;
+/* ─────────────────────────────────────────────────────────────── card ─── */
+.card {
+  background: var(--bg); border: 1px solid var(--border);
+  border-radius: var(--r-lg); box-shadow: var(--shadow-sm);
 }
-.mode[aria-selected="true"] { color: var(--ink); border-color: var(--ink); }
+.card-body { padding: 18px; }
+
+.seg {
+  display: inline-flex; padding: 3px; gap: 2px; margin-bottom: 14px;
+  background: var(--bg-sunken); border-radius: var(--r-md);
+}
+.seg button {
+  padding: 6px 12px; border: 0; border-radius: var(--r-sm); cursor: pointer;
+  font: 500 13px var(--ui); color: var(--text-2); background: transparent;
+}
+.seg button[aria-selected="true"] {
+  background: var(--bg); color: var(--text); box-shadow: var(--shadow-sm);
+}
 
 textarea {
-  width: 100%; min-height: 116px; resize: vertical;
-  padding: var(--gap-3); background: var(--paper-sunk); color: var(--ink);
-  border: var(--hair) solid var(--rule); border-radius: 2px;
-  font: 400 13.5px/1.85 var(--mono);
+  width: 100%; min-height: 112px; resize: vertical; padding: 11px 12px;
+  background: var(--bg); color: var(--text);
+  border: 1px solid var(--border-firm); border-radius: var(--r-md);
+  font: 400 13px/1.8 var(--mono);
 }
-textarea:focus, .intake:focus-within { outline: 2px solid var(--mark); outline-offset: 1px; }
-textarea::placeholder { color: var(--ink-3); }
+textarea:focus, .upload:focus-within {
+  outline: none; border-color: var(--brand);
+  box-shadow: 0 0 0 3px var(--brand-soft);
+}
+textarea::placeholder { color: var(--text-3); }
 
-.intake {
-  border: var(--hair) dashed var(--rule-firm); border-radius: 2px;
-  padding: var(--gap-5) var(--gap-4); text-align: center; cursor: pointer;
+.upload {
+  border: 1.5px dashed var(--border-firm); border-radius: var(--r-md);
+  padding: 28px 20px; text-align: center; cursor: pointer; display: block;
   transition: border-color .12s, background .12s;
 }
-.intake:hover, .intake.over { border-color: var(--mark); background: var(--paper-sunk); }
-.intake p { margin: 0; font: 450 13.5px/1.5 var(--sans); color: var(--ink-2); }
-.intake .formats { margin-top: 5px; font: 400 12px/1 var(--mono); color: var(--ink-3); }
-.intake input { display: none; }
+.upload:hover, .upload.over { border-color: var(--brand); background: var(--brand-soft); }
+.upload svg { width: 20px; height: 20px; color: var(--text-3); margin-bottom: 8px; }
+.upload p { margin: 0; font-size: 13.5px; color: var(--text-2); }
+.upload strong { color: var(--text); font-weight: 550; }
+.upload .types { margin-top: 4px; font: 400 12px var(--mono); color: var(--text-3); }
+.upload input { display: none; }
 
-.specimens { display: flex; flex-wrap: wrap; align-items: baseline;
-             gap: var(--gap-2) var(--gap-3); margin-top: var(--gap-3); }
-.specimen {
-  background: none; border: 0; padding: 0; cursor: pointer;
-  font: 450 12.5px/1 var(--sans); color: var(--mark);
-  border-bottom: var(--hair) solid var(--rule-firm);
+.examples { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 12px; align-items: center; }
+.examples > span { font-size: 12.5px; color: var(--text-3); margin-right: 2px; }
+.example {
+  padding: 4px 10px; border-radius: var(--r-sm); cursor: pointer;
+  font: 500 12.5px var(--ui); color: var(--text-2);
+  background: var(--bg-subtle); border: 1px solid var(--border);
 }
-.specimen:hover { border-color: var(--mark); }
+.example:hover { border-color: var(--brand); color: var(--brand); background: var(--brand-soft); }
 
-.commit { display: flex; align-items: baseline; gap: var(--gap-3);
-          margin-top: var(--gap-4); flex-wrap: wrap; }
-.run {
-  background: var(--ink); color: var(--paper); border: 0; border-radius: 2px;
-  padding: 11px 24px; cursor: pointer;
-  font: 500 11px/1 var(--sans); letter-spacing: .13em; text-transform: uppercase;
+.submit-row { display: flex; align-items: center; gap: 12px; margin-top: 16px; flex-wrap: wrap; }
+.primary {
+  display: inline-flex; align-items: center; gap: 7px;
+  padding: 9px 16px; border: 0; border-radius: var(--r-md); cursor: pointer;
+  font: 550 13.5px var(--ui); color: #fff; background: var(--brand);
+  box-shadow: var(--shadow-sm);
 }
-.run:hover:not(:disabled) { background: var(--mark); }
-.run:disabled { opacity: .4; cursor: not-allowed; }
-.aside { font: 400 12.5px/1.45 var(--sans); color: var(--ink-3); }
+.primary:hover:not(:disabled) { filter: brightness(1.07); }
+.primary:disabled { opacity: .5; cursor: not-allowed; }
+.primary svg { width: 14px; height: 14px; }
+.note { font-size: 12.5px; color: var(--text-3); }
 
-/* ═══════════════════════════════════════════════════ findings ═══ */
-.findings { border-top: 2px solid var(--ink); padding-top: var(--gap-3); }
-.findings-head {
-  display: flex; align-items: baseline; justify-content: space-between;
-  gap: var(--gap-3); flex-wrap: wrap; margin-bottom: var(--gap-4);
+/* ──────────────────────────────────────────────────────────── results ─── */
+.results { margin-top: 20px; }
+.stats {
+  display: flex; align-items: center; gap: 28px; flex-wrap: wrap;
+  padding: 16px 18px; border-bottom: 1px solid var(--border);
 }
-.tally { display: flex; gap: var(--gap-5); }
-.tally .n { font: 500 31px/1 var(--display); letter-spacing: -.045em; }
-.tally .n.risk { color: var(--oxide); }
-.tally .label { margin-top: 6px; }
+.stat .v { font-size: 23px; font-weight: 650; letter-spacing: -.02em; line-height: 1.15; }
+.stat .v.bad { color: var(--danger); }
+.stat .k { font-size: 12px; color: var(--text-3); margin-top: 2px; }
+.spread { flex: 1; min-width: 180px; }
+.spread-bar { display: flex; height: 6px; border-radius: 3px; overflow: hidden; gap: 2px; }
+.spread-bar span { transition: width .45s ease; }
+.spread-key { display: flex; gap: 14px; margin-top: 8px; flex-wrap: wrap;
+              font-size: 12px; color: var(--text-2); }
+.key-dot { display: inline-block; width: 7px; height: 7px; border-radius: 50%; margin-right: 6px; }
 
-/* the distribution reads as a measured strip, square ends, hairline framed */
-.strip { display: flex; height: 9px; border: var(--hair) solid var(--rule-firm); }
-.strip span { transition: width .45s ease; }
-.strip-key { display: flex; gap: var(--gap-3); margin-top: 7px; flex-wrap: wrap; }
-.strip-key span { font: 400 12px/1 var(--mono); color: var(--ink-2); }
-.swatch { display: inline-block; width: 8px; height: 8px; margin-right: 5px; }
-.dist { min-width: 190px; flex: 1; }
+.item { padding: 15px 18px; border-bottom: 1px solid var(--border); }
+.item:last-of-type { border-bottom: 0; }
+.item-top { display: flex; align-items: center; gap: 9px; }
+.item-name { font: 500 14px var(--mono); letter-spacing: -.02em; }
+.item-repo { font-size: 12.5px; color: var(--text-3); text-decoration: none; }
+.item-repo:hover { color: var(--brand); text-decoration: underline; }
+.pill { font-size: 11px; font-weight: 550; padding: 2px 8px; border-radius: 20px; }
+.pill.danger { color: var(--danger); background: var(--danger-soft); }
+.pill.warn   { color: var(--warn);   background: var(--warn-soft); }
+.pill.ok     { color: var(--ok);     background: var(--ok-soft); }
+.item-score { margin-left: auto; font: 600 15px var(--mono); letter-spacing: -.02em; }
+.bar { height: 5px; border-radius: 3px; background: var(--bg-sunken);
+       margin-top: 10px; overflow: hidden; }
+.bar i { display: block; height: 100%; border-radius: 3px; transition: width .5s ease; }
 
-/* ── one finding ─────────────────────────────────────────────────── */
-.finding { padding: var(--gap-3) 0; border-top: var(--hair) solid var(--rule); }
-.finding:first-of-type { border-top: var(--hair) solid var(--rule-firm); }
-.line { display: flex; align-items: baseline; gap: var(--gap-2); }
-.name { font: 500 14.5px/1.3 var(--mono); letter-spacing: -.02em; }
-.origin { font: 400 12px/1.3 var(--mono); color: var(--ink-3);
-          text-decoration: none; border-bottom: var(--hair) solid transparent; }
-.origin:hover { color: var(--mark); border-color: var(--mark); }
-.reading { margin-left: auto; font: 500 17px/1 var(--display); letter-spacing: -.035em; }
-
-/* gauge: baseline rule with a filled span and a terminal tick — a measurement,
-   not a progress bar. Square ends, hairline weight. */
-.gauge { position: relative; height: 3px; background: var(--rule); margin: 9px 0 0; }
-.gauge i { position: absolute; inset: 0 auto 0 0; display: block; transition: width .5s ease; }
-.gauge b { position: absolute; top: -3px; bottom: -3px; width: 2px;
-           transition: left .5s ease; }
-.ticks { display: flex; justify-content: space-between; margin-top: 4px; }
-.ticks span { font: 400 9px/1 var(--mono); color: var(--ink-3); }
-
-.evidence { margin: var(--gap-2) 0 0; padding: 0; list-style: none; }
-.evidence li {
-  font: 400 13px/1.55 var(--sans); color: var(--ink-2);
-  padding-left: 15px; position: relative;
+.why { margin: 10px 0 0; padding: 0; list-style: none;
+       display: flex; flex-wrap: wrap; gap: 6px; }
+.why li {
+  font-size: 12.5px; color: var(--text-2); padding: 3px 9px;
+  background: var(--bg-subtle); border: 1px solid var(--border); border-radius: var(--r-sm);
 }
-.evidence li::before {
-  content: ""; position: absolute; left: 0; top: .68em;
-  width: 8px; height: var(--hair); background: var(--rule-firm);
+.oops { font-size: 12.5px; color: var(--text-3); margin-top: 8px; }
+
+.foot { padding: 14px 18px; font-size: 12.5px; color: var(--text-3);
+        border-top: 1px solid var(--border); background: var(--bg-subtle);
+        border-radius: 0 0 var(--r-lg) var(--r-lg); }
+.foot code { font: 400 12px var(--mono); color: var(--text-2); }
+
+.text-danger { color: var(--danger); }  .bg-danger { background: var(--danger); }
+.text-warn   { color: var(--warn); }    .bg-warn   { background: var(--warn); }
+.text-ok     { color: var(--ok); }      .bg-ok     { background: var(--ok); }
+.text-neutral{ color: var(--neutral); } .bg-neutral{ background: var(--neutral); }
+
+/* ──────────────────────────────────────────────────────────── loading ─── */
+.busy { padding: 22px 18px; }
+.busy-top { display: flex; align-items: center; gap: 9px; font-size: 13.5px;
+            color: var(--text-2); margin-bottom: 13px; }
+.spinner { width: 14px; height: 14px; border: 2px solid var(--border-firm);
+           border-top-color: var(--brand); border-radius: 50%;
+           animation: rot .7s linear infinite; }
+@keyframes rot { to { transform: rotate(360deg); } }
+.chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.chips span {
+  font: 400 12.5px var(--mono); padding: 3px 9px; border-radius: var(--r-sm);
+  background: var(--bg-subtle); border: 1px solid var(--border); color: var(--text-3);
+  animation: fade 1.5s ease-in-out infinite;
 }
-.fault { font: 400 12.5px/1.5 var(--sans); color: var(--ink-3);
-         font-style: italic; margin-top: 6px; }
+@keyframes fade { 50% { opacity: .5; } }
+.rail { height: 3px; background: var(--bg-sunken); border-radius: 2px;
+        margin-top: 14px; overflow: hidden; }
+.rail i { display: block; height: 100%; width: 32%; border-radius: 2px;
+          background: var(--brand); animation: run 1.3s ease-in-out infinite; }
+@keyframes run { 0% { margin-left: -32%; } 100% { margin-left: 100%; } }
 
-.oxide { color: var(--oxide); } .bg-oxide { background: var(--oxide); }
-.ochre { color: var(--ochre); } .bg-ochre { background: var(--ochre); }
-.verdi { color: var(--verdi); } .bg-verdi { background: var(--verdi); }
-.slate { color: var(--slate); } .bg-slate { background: var(--slate); }
+.blank { padding: 36px 18px; text-align: center; font-size: 14px; color: var(--text-3); }
+.blank.bad { color: var(--danger); }
 
-/* ═══════════════════════════════════════════════════ progress ═══ */
-.working { border-top: 2px solid var(--ink); padding: var(--gap-4) 0; }
-.working .label { margin-bottom: var(--gap-3); }
-.roster { display: flex; flex-wrap: wrap; gap: var(--gap-1) var(--gap-3); }
-.roster span { font: 400 13px/1.6 var(--mono); color: var(--ink-3); }
-.roster span::after { content: " ·"; color: var(--rule-firm); }
-.roster span:last-child::after { content: ""; }
-.sweep { height: 2px; background: var(--rule); margin-top: var(--gap-3); overflow: hidden; }
-.sweep i { display: block; height: 100%; width: 28%; background: var(--ink);
-           animation: sweep 1.25s ease-in-out infinite; }
-@keyframes sweep { 0% { margin-left: -28%; } 100% { margin-left: 100%; } }
-
-.void { border-top: 2px solid var(--ink); padding: var(--gap-5) 0;
-        font: 400 14px/1.5 var(--sans); color: var(--ink-3); }
-.void.fault { color: var(--oxide); }
-
-.imprint { margin-top: var(--gap-4); padding-top: var(--gap-3);
-           border-top: var(--hair) solid var(--rule);
-           font: 400 12px/1.6 var(--mono); color: var(--ink-3); }
-
-/* ═══════════════════════════════════════════════════ narrow ═══ */
-@media (max-width: 620px) {
-  .sheet { padding: 0 18px 72px; }
-  .masthead { flex-direction: column; align-items: flex-start; gap: var(--gap-3); }
-  .masthead h1 { font-size: 22px; }
-  .colophon { text-align: left; }
-  .tally { gap: var(--gap-4); }
-  .tally .n { font-size: 25px; }
-  .dist { flex-basis: 100%; }
-  /* the finding line runs out of measure: give the origin its own line and
-     let the name and reading hold the first */
-  .line { flex-wrap: wrap; row-gap: 2px; }
-  .name { flex: 1 1 auto; min-width: 0; overflow-wrap: anywhere; }
-  .reading { flex: none; font-size: 15.5px; }
-  .origin { flex-basis: 100%; order: 3;
-            overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* ───────────────────────────────────────────────────────────── narrow ─── */
+@media (max-width: 600px) {
+  .page { padding: 0 16px 64px; }
+  .intro h1 { font-size: 21px; }
+  .stats { gap: 18px; }
+  .stat .v { font-size: 20px; }
+  .spread { flex-basis: 100%; }
+  /* the single-line item header runs out of width: name and score keep the
+     first line, the repo path drops below, and the pill is redundant next to
+     the coloured bar */
+  .item-top { flex-wrap: wrap; row-gap: 3px; }
+  .item-name { flex: 1 1 auto; min-width: 0; overflow-wrap: anywhere; }
+  .item-score { flex: none; font-size: 14px; }
+  .item-repo { flex-basis: 100%; order: 3;
+               overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .pill { display: none; }
 }
 </style>
 </head>
 <body>
-<div class="sheet">
+<div class="page">
 
-  <header class="masthead">
-    <div>
-      <h1>Drift<em>logg</em></h1>
-      <p class="sub">A decay report for the packages you depend on — which are
-         drifting toward abandonment, and on what evidence.</p>
+  <header class="top">
+    <div class="logo">
+      <div class="logo-box">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"
+             stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M3 8l4 10 4-14 4 10 2-4h4"/>
+        </svg>
+      </div>
+      <span>DriftLogg</span>
     </div>
-    <div class="colophon">
-      <div class="label">Forecast horizon · 90d</div>
-      <div class="label" id="engine">Engine · —</div>
-      <button class="theme" id="theme">Invert</button>
+    <div class="top-right">
+      <span class="engine" id="engine">—</span>
+      <button class="ghost" id="theme" title="Toggle theme" aria-label="Toggle theme">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+             stroke-linecap="round" stroke-linejoin="round">
+          <path d="M21 12.8A9 9 0 1111.2 3a7 7 0 009.8 9.8z"/>
+        </svg>
+      </button>
     </div>
   </header>
 
-  <div class="advisory" id="advisory"><b>Advisory</b><span id="advisory-text"></span></div>
+  <div class="intro">
+    <h1>Which dependencies are going unmaintained?</h1>
+    <p>DriftLogg reads commit, issue and release history from GitHub and estimates
+       the chance a package stops receiving updates in the next 90 days — before
+       the security patches quietly stop arriving.</p>
+  </div>
 
-  <section class="query">
-    <div class="modes" role="tablist">
-      <button class="mode" role="tab" aria-selected="true" data-mode="names">By name</button>
-      <button class="mode" role="tab" aria-selected="false" data-mode="file">From manifest</button>
-    </div>
+  <div class="alert" id="alert">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+         stroke-linecap="round" stroke-linejoin="round">
+      <circle cx="12" cy="12" r="9"/><path d="M12 8v5M12 16h.01"/>
+    </svg>
+    <span id="alert-text"></span>
+  </div>
 
-    <div id="pane-names">
-      <textarea id="names" spellcheck="false"
-                placeholder="express&#10;lodash&#10;request&#10;left-pad"></textarea>
-      <div class="specimens">
-        <span class="label">Specimens</span>
-        <button class="specimen" data-fill="request&#10;gulp-util&#10;istanbul&#10;left-pad">Known decayed</button>
-        <button class="specimen" data-fill="express&#10;react&#10;lodash&#10;moment">Widely used</button>
-        <button class="specimen" data-fill="express&#10;request&#10;lodash&#10;gulp-util&#10;react">Mixed</button>
+  <div class="card">
+    <div class="card-body">
+      <div class="seg" role="tablist">
+        <button role="tab" aria-selected="true" data-mode="names">Package names</button>
+        <button role="tab" aria-selected="false" data-mode="file">Manifest file</button>
+      </div>
+
+      <div id="pane-names">
+        <textarea id="names" spellcheck="false"
+                  placeholder="express&#10;lodash&#10;request&#10;left-pad"></textarea>
+        <div class="examples">
+          <span>Examples</span>
+          <button class="example" data-fill="request&#10;gulp-util&#10;istanbul&#10;left-pad">Known unmaintained</button>
+          <button class="example" data-fill="express&#10;react&#10;lodash&#10;moment">Popular</button>
+          <button class="example" data-fill="express&#10;request&#10;lodash&#10;gulp-util&#10;react">Mixed</button>
+        </div>
+      </div>
+
+      <div id="pane-file" hidden>
+        <label class="upload" id="upload" tabindex="0">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"
+               stroke-linecap="round" stroke-linejoin="round">
+            <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M17 8l-5-5-5 5M12 3v12"/>
+          </svg>
+          <p id="upload-label"><strong>Choose a file</strong> or drag it here</p>
+          <p class="types">package.json · requirements.txt · pyproject.toml</p>
+          <input type="file" id="file" accept=".json,.txt,.toml">
+        </label>
+      </div>
+
+      <div class="submit-row">
+        <button class="primary" id="go">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"
+               stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/>
+          </svg>
+          Analyze
+        </button>
+        <span class="note">Each package is checked live — a few seconds apiece.</span>
       </div>
     </div>
-
-    <div id="pane-file" hidden>
-      <label class="intake" id="intake" tabindex="0">
-        <p id="intake-label">Drop a manifest, or choose a file</p>
-        <p class="formats">package.json · requirements.txt · pyproject.toml</p>
-        <input type="file" id="file" accept=".json,.txt,.toml">
-      </label>
-    </div>
-
-    <div class="commit">
-      <button class="run" id="go">Run report</button>
-      <span class="aside">Each package is resolved and read live; allow a few seconds apiece.</span>
-    </div>
-  </section>
+  </div>
 
   <div id="out" aria-live="polite"></div>
 </div>
@@ -340,139 +377,133 @@ textarea::placeholder { color: var(--ink-3); }
 <script>
 const $ = (s) => document.querySelector(s);
 const BANDS = ["high", "elevated", "low", "unknown"];
-const PIGMENT = { high: "oxide", elevated: "ochre", low: "verdi", unknown: "slate" };
-const READING = { high: "Decaying", elevated: "Drifting", low: "Sound", unknown: "Unread" };
+const TONE  = { high: "danger", elevated: "warn", low: "ok", unknown: "neutral" };
+const LABEL = { high: "At risk", elevated: "Watch", low: "Healthy", unknown: "Unknown" };
 let mode = "names";
 
-/* ── theme ─────────────────────────────────────────────────────────── */
-const saved = localStorage.getItem("driftlogg-theme");
-if (saved) document.documentElement.dataset.theme = saved;
+/* Theme — light is the default. Dark applies only when explicitly chosen, so
+   the page never flips based on the system setting. */
+if (localStorage.getItem("driftlogg-theme") === "dark")
+  document.documentElement.dataset.theme = "dark";
 $("#theme").onclick = () => {
-  const dark = matchMedia("(prefers-color-scheme: dark)").matches;
-  const now = document.documentElement.dataset.theme || (dark ? "dark" : "light");
-  const next = now === "dark" ? "light" : "dark";
-  document.documentElement.dataset.theme = next;
-  localStorage.setItem("driftlogg-theme", next);
+  const goingDark = document.documentElement.dataset.theme !== "dark";
+  if (goingDark) document.documentElement.dataset.theme = "dark";
+  else document.documentElement.removeAttribute("data-theme");
+  localStorage.setItem("driftlogg-theme", goingDark ? "dark" : "light");
 };
 
-/* ── modes ─────────────────────────────────────────────────────────── */
-document.querySelectorAll(".mode").forEach((m) => {
-  m.onclick = () => {
-    document.querySelectorAll(".mode").forEach((x) => x.setAttribute("aria-selected", "false"));
-    m.setAttribute("aria-selected", "true");
-    mode = m.dataset.mode;
+document.querySelectorAll(".seg button").forEach((b) => {
+  b.onclick = () => {
+    document.querySelectorAll(".seg button").forEach((x) => x.setAttribute("aria-selected", "false"));
+    b.setAttribute("aria-selected", "true");
+    mode = b.dataset.mode;
     $("#pane-names").hidden = mode !== "names";
     $("#pane-file").hidden = mode !== "file";
   };
 });
-document.querySelectorAll(".specimen").forEach((s) => {
-  s.onclick = () => { $("#names").value = s.dataset.fill; $("#names").focus(); };
+document.querySelectorAll(".example").forEach((e) => {
+  e.onclick = () => { $("#names").value = e.dataset.fill; $("#names").focus(); };
 });
 
-/* ── file intake ───────────────────────────────────────────────────── */
-const intake = $("#intake"), fileInput = $("#file");
-intake.addEventListener("keydown", (e) => {
-  if (e.key === "Enter" || e.key === " ") { e.preventDefault(); fileInput.click(); }
-});
-["dragenter", "dragover"].forEach((e) =>
-  intake.addEventListener(e, (ev) => { ev.preventDefault(); intake.classList.add("over"); }));
-["dragleave", "drop"].forEach((e) =>
-  intake.addEventListener(e, (ev) => { ev.preventDefault(); intake.classList.remove("over"); }));
-intake.addEventListener("drop", (ev) => {
-  if (ev.dataTransfer.files.length) { fileInput.files = ev.dataTransfer.files; named(); }
-});
-fileInput.addEventListener("change", named);
-function named() {
-  const f = fileInput.files[0];
-  $("#intake-label").textContent = f ? f.name : "Drop a manifest, or choose a file";
-}
-
-/* ── helpers ───────────────────────────────────────────────────────── */
 const esc = (s) => String(s).replace(/[&<>"']/g, (c) =>
   ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 const pct = (x) => (x === null || x === undefined ? "—" : Math.round(x * 100) + "%");
 const listed = () => $("#names").value.split(/[\n,]+/).map((s) => s.trim()).filter(Boolean);
 
-async function survey() {
+/* file input */
+const upload = $("#upload"), fileInput = $("#file");
+upload.addEventListener("keydown", (e) => {
+  if (e.key === "Enter" || e.key === " ") { e.preventDefault(); fileInput.click(); }
+});
+["dragenter", "dragover"].forEach((e) =>
+  upload.addEventListener(e, (ev) => { ev.preventDefault(); upload.classList.add("over"); }));
+["dragleave", "drop"].forEach((e) =>
+  upload.addEventListener(e, (ev) => { ev.preventDefault(); upload.classList.remove("over"); }));
+upload.addEventListener("drop", (ev) => {
+  if (ev.dataTransfer.files.length) { fileInput.files = ev.dataTransfer.files; showName(); }
+});
+fileInput.addEventListener("change", showName);
+function showName() {
+  const f = fileInput.files[0];
+  $("#upload-label").innerHTML = f
+    ? `<strong>${esc(f.name)}</strong>` : "<strong>Choose a file</strong> or drag it here";
+}
+
+async function boot() {
   try {
     const h = await (await fetch("/health")).json();
-    $("#engine").textContent = "Engine · " + (h.model_loaded ? "lightgbm" : "baseline");
-    const notes = [];
+    $("#engine").textContent = h.model_loaded ? "lightgbm" : "baseline";
+    const msgs = [];
     if (!h.model_loaded)
-      notes.push("No trained model is loaded; readings come from the inactivity baseline rather than the model.");
+      msgs.push("No trained model loaded — scores come from the inactivity baseline, not the model.");
     if (!h.github_token_present)
-      notes.push("No GitHub token is configured; the API rate limit will be reached quickly.");
-    if (notes.length) {
-      $("#advisory").style.display = "block";
-      $("#advisory-text").textContent = notes.join(" ");
+      msgs.push("No GitHub token configured; API rate limits will be hit quickly.");
+    if (msgs.length) {
+      $("#alert").style.display = "flex";
+      $("#alert-text").textContent = msgs.join(" ");
     }
   } catch { /* advisory only */ }
 }
 
-/* ── views ─────────────────────────────────────────────────────────── */
-function working(roster) {
+function busy(queue) {
   $("#out").innerHTML = `
-    <section class="working">
-      <div class="label">Reading ${roster.length} package${roster.length === 1 ? "" : "s"}</div>
-      <div class="roster">${roster.map((n) => `<span>${esc(n)}</span>`).join("")}</div>
-      <div class="sweep"><i></i></div>
-    </section>`;
+    <div class="card results busy">
+      <div class="busy-top"><span class="spinner"></span>
+        Checking ${queue.length} package${queue.length === 1 ? "" : "s"}…</div>
+      <div class="chips">${queue.map((n) => `<span>${esc(n)}</span>`).join("")}</div>
+      <div class="rail"><i></i></div>
+    </div>`;
 }
 
-function report(data) {
-  const count = Object.fromEntries(BANDS.map((b) => [b, data.results.filter((r) => r.band === b).length]));
+function render(data) {
+  const n = Object.fromEntries(BANDS.map((b) => [b, data.results.filter((r) => r.band === b).length]));
   const total = data.results.length || 1;
-  const strip = BANDS.map((b) => count[b]
-    ? `<span class="bg-${PIGMENT[b]}" style="width:${(count[b] / total) * 100}%"></span>` : "").join("");
-  const key = BANDS.filter((b) => count[b]).map((b) =>
-    `<span><i class="swatch bg-${PIGMENT[b]}"></i>${count[b]} ${READING[b].toLowerCase()}</span>`).join("");
+  const bar = BANDS.map((b) => n[b]
+    ? `<span class="bg-${TONE[b]}" style="width:${(n[b] / total) * 100}%"></span>` : "").join("");
+  const key = BANDS.filter((b) => n[b]).map((b) =>
+    `<span><i class="key-dot bg-${TONE[b]}"></i>${n[b]} ${LABEL[b].toLowerCase()}</span>`).join("");
 
-  const findings = data.results.map((r) => {
-    const p = PIGMENT[r.band];
+  const items = data.results.map((r) => {
+    const t = TONE[r.band];
     const scored = r.score !== null && r.score !== undefined;
     return `
-    <article class="finding">
-      <div class="line">
-        <span class="name">${esc(r.package)}</span>
-        ${r.repo ? `<a class="origin" href="https://github.com/${esc(r.repo)}"
+    <div class="item">
+      <div class="item-top">
+        <span class="item-name">${esc(r.package)}</span>
+        ${r.repo ? `<a class="item-repo" href="https://github.com/${esc(r.repo)}"
             target="_blank" rel="noopener noreferrer">${esc(r.repo)}</a>` : ""}
-        <span class="reading ${p}">${pct(r.score)}</span>
+        ${scored ? `<span class="pill ${t}">${LABEL[r.band]}</span>` : ""}
+        <span class="item-score text-${t}">${pct(r.score)}</span>
       </div>
-      ${scored ? `<div class="gauge">
-          <i class="bg-${p}" style="width:${r.score * 100}%"></i>
-          <b class="bg-${p}" style="left:calc(${r.score * 100}% - 1px)"></b>
-        </div>` : ""}
+      ${scored ? `<div class="bar"><i class="bg-${t}"
+          style="width:${Math.max(r.score * 100, 2)}%"></i></div>` : ""}
       ${r.reasons.length
-        ? `<ul class="evidence">${r.reasons.map((x) => `<li>${esc(x.label)}</li>`).join("")}</ul>` : ""}
-      ${r.error ? `<p class="fault">${esc(r.error)}</p>` : ""}
-    </article>`;
+        ? `<ul class="why">${r.reasons.map((x) => `<li>${esc(x.label)}</li>`).join("")}</ul>` : ""}
+      ${r.error ? `<p class="oops">${esc(r.error)}</p>` : ""}
+    </div>`;
   }).join("");
 
   $("#out").innerHTML = `
-    <section class="findings">
-      <div class="findings-head">
-        <div class="tally">
-          <div><div class="n">${data.total}</div><div class="label">Read</div></div>
-          <div><div class="n risk">${count.high}</div><div class="label">Decaying</div></div>
-        </div>
-        <div class="dist">
-          <div class="strip">${strip}</div>
-          <div class="strip-key">${key}</div>
-          <div class="ticks"><span>0%</span><span>50%</span><span>100%</span></div>
+    <div class="card results">
+      <div class="stats">
+        <div class="stat"><div class="v">${data.total}</div><div class="k">Checked</div></div>
+        <div class="stat"><div class="v bad">${n.high}</div><div class="k">At risk</div></div>
+        <div class="spread">
+          <div class="spread-bar">${bar}</div>
+          <div class="spread-key">${key}</div>
         </div>
       </div>
-      ${findings}
-      <p class="imprint">Readings are the modelled probability that a package
-        records no commits at all through a 180-day window opening
-        ${data.horizon_days} days from today. Engine: ${esc(data.model_kind)}.</p>
-    </section>`;
+      ${items}
+      <div class="foot">Probability each package records no commits through a
+        180-day window opening ${data.horizon_days} days from now · scored by
+        <code>${esc(data.model_kind)}</code></div>
+    </div>`;
 }
 
-function fault(msg) {
-  $("#out").innerHTML = `<section class="void fault">${esc(msg)}</section>`;
+function oops(msg) {
+  $("#out").innerHTML = `<div class="card results blank bad">${esc(msg)}</div>`;
 }
 
-/* ── run ───────────────────────────────────────────────────────────── */
 $("#go").onclick = async () => {
   const btn = $("#go");
   btn.disabled = true;
@@ -480,8 +511,8 @@ $("#go").onclick = async () => {
     let res;
     if (mode === "names") {
       const packages = listed();
-      if (!packages.length) throw new Error("Name at least one package to read.");
-      working(packages);
+      if (!packages.length) throw new Error("Enter at least one package name.");
+      busy(packages);
       res = await fetch("/score", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -490,18 +521,18 @@ $("#go").onclick = async () => {
     } else {
       const f = fileInput.files[0];
       if (!f) throw new Error("Choose a manifest file first.");
-      working([f.name]);
+      busy([f.name]);
       const fd = new FormData();
       fd.append("file", f);
       res = await fetch("/score/manifest", { method: "POST", body: fd });
     }
     if (!res.ok) {
       const err = await res.json().catch(() => ({ detail: res.statusText }));
-      throw new Error(err.detail || "The request could not be completed.");
+      throw new Error(err.detail || "Request failed.");
     }
-    report(await res.json());
+    render(await res.json());
   } catch (e) {
-    fault(e.message);
+    oops(e.message);
   } finally {
     btn.disabled = false;
   }
@@ -511,7 +542,7 @@ $("#names").addEventListener("keydown", (e) => {
   if ((e.metaKey || e.ctrlKey) && e.key === "Enter") $("#go").click();
 });
 
-survey();
+boot();
 </script>
 </body>
 </html>
