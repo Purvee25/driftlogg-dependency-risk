@@ -1,0 +1,35 @@
+name: dependency-check
+
+# Dogfoods the action against this repository's own dependencies.
+on:
+  pull_request:
+    paths:
+      - "pyproject.toml"
+      - "requirements*.txt"
+      - "package.json"
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  drift:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # changed-only diffs against the base branch, which a shallow
+          # clone does not contain.
+          fetch-depth: 0
+
+      - name: Check for decaying dependencies
+        uses: ./
+        with:
+          manifest: pyproject.toml
+          threshold: "0.60"
+          changed-only: "true"
+          base-ref: origin/${{ github.base_ref }}
+          # Advisory to begin with. Flip to false once the team trusts the
+          # signal — a check that blocks merges before it has earned trust
+          # gets disabled rather than heeded.
+          warn-only: "true"

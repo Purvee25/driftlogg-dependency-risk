@@ -29,10 +29,3 @@ htmlcov/
 
 # OS
 .DS_Store
-
-# Workflow files are kept on disk but not committed: the gh OAuth token lacks
-# the `workflow` scope, so any push containing them is rejected outright. Add
-# them through the GitHub web UI, or once you have the scope:
-#   gh auth login --scopes "repo,workflow" --hostname github.com --web
-# then delete these two lines and commit .github/workflows/ normally.
-.github/workflows/
