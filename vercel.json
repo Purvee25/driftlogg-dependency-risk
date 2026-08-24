@@ -5,6 +5,7 @@
   },
   "rewrites": [{ "source": "/(.*)", "destination": "driftlogg/api/main.py" }],
   "env": {
-    "DRIFTLOGG_DATA_DIR": "/tmp/driftlogg-data"
+    "DRIFTLOGG_DATA_DIR": "/tmp/driftlogg-data",
+    "DRIFTLOGG_MODEL_URL": "https://raw.githubusercontent.com/Purvee25/driftlogg-dependency-risk/main/models/model.pkl"
   }
 }

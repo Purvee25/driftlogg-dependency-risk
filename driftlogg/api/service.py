@@ -95,11 +95,38 @@ class ScoringService:
             if self._load_model(path):
                 return
 
+        if settings.model_url and self._download_model():
+            return
+
         logger.warning(
             "No trained model found in %s — falling back to the inactivity "
             "baseline. Run scripts/04_train.py to produce one.",
             ", ".join(str(p) for p in candidates),
         )
+
+    def _download_model(self) -> bool:
+        """Fetch the model from `settings.model_url`, caching it to disk first.
+
+        Caching before loading means a second cold start on the same warm
+        instance hits the local file rather than downloading again, and a
+        corrupt or partial download never reaches `pickle.load`.
+
+        Returns:
+            True if the model downloaded and loaded successfully.
+        """
+        import httpx
+
+        target = settings.data_dir / "model.pkl"
+        try:
+            target.parent.mkdir(parents=True, exist_ok=True)
+            response = httpx.get(settings.model_url, timeout=30.0, follow_redirects=True)
+            response.raise_for_status()
+            target.write_bytes(response.content)
+        except Exception:
+            logger.warning("Could not download model from %s.", settings.model_url, exc_info=True)
+            return False
+
+        return self._load_model(target)
 
     def _load_model(self, path: Path) -> bool:
         """Attempt to load a pickled model bundle.

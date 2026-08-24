@@ -24,6 +24,16 @@ class Settings(BaseSettings):
     github_token: str = ""
     """Personal access token. Raises the API limit from 60 to 5000 req/hour."""
 
+    model_url: str = ""
+    """Fallback: download the model from here if no local copy is found.
+
+    Serverless deploys (Vercel) can't practically bundle the 1.3MB pickle
+    through this project's manual file-upload path, so the deployed instance
+    downloads it once from the public repo's raw GitHub URL and caches it to
+    disk. Empty by default — nothing calls out over the network unless this is
+    explicitly set (see vercel.json).
+    """
+
     ecosystem: str = "npm"
     """Which package registry to study. Pick one and stay there."""
 
