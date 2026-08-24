@@ -1,5 +1,8 @@
 # DriftLogg
 
+[![tests](https://github.com/Purvee25/driftlogg-dependency-risk/actions/workflows/tests.yml/badge.svg)](https://github.com/Purvee25/driftlogg-dependency-risk/actions/workflows/tests.yml)
+[![dependency-check](https://github.com/Purvee25/driftlogg-dependency-risk/actions/workflows/dependency-check.yml/badge.svg)](https://github.com/Purvee25/driftlogg-dependency-risk/actions/workflows/dependency-check.yml)
+
 Predicts which of your open-source dependencies are likely to go silent in the
 next 90 days — before the security patches quietly stop arriving.
 
