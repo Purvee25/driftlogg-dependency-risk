@@ -1,0 +1,10 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "functions": {
+    "driftlogg/api/main.py": { "maxDuration": 30 }
+  },
+  "rewrites": [{ "source": "/(.*)", "destination": "driftlogg/api/main.py" }],
+  "env": {
+    "DRIFTLOGG_DATA_DIR": "/tmp/driftlogg-data"
+  }
+}
