@@ -25,6 +25,7 @@ api = [
 dev = [
     "pytest>=8.2",
     "pytest-cov>=5.0",
+    "httpx2>=2.13",  # Starlette's TestClient prefers it over httpx
     "ruff>=0.4",
     "black>=24.4",
 ]
