@@ -219,6 +219,25 @@ class TestAPIEndpoints:
         assert response.status_code == 400
         assert "No dependencies" in response.json()["detail"]
 
+    def test_requirements_upload_is_scored_against_pypi(self, client):
+        from unittest.mock import MagicMock
+
+        from driftlogg.api.main import app, get_service
+        from driftlogg.collect.registry import Ecosystem
+
+        service = MagicMock(model_kind="baseline")
+        service.score_packages.return_value = []
+        app.dependency_overrides[get_service] = lambda: service
+        try:
+            client.post(
+                "/score/manifest",
+                files={"file": ("requirements.txt", b"requests==2.31\n", "text/plain")},
+            )
+        finally:
+            app.dependency_overrides.clear()
+
+        assert service.score_packages.call_args.kwargs["ecosystem"] is Ecosystem.PYPI
+
     def test_score_rejects_empty_package_list(self, client):
         response = client.post("/score", json={"packages": []})
 
@@ -370,15 +389,13 @@ class TestEcosystemRouting:
     """
 
     def test_package_json_routes_to_npm(self):
-        from driftlogg.api.manifests import ManifestKind
-        from driftlogg.cli import ecosystem_for
+        from driftlogg.api.manifests import ManifestKind, ecosystem_for
         from driftlogg.collect.registry import Ecosystem
 
         assert ecosystem_for(ManifestKind.PACKAGE_JSON) is Ecosystem.NPM
 
     def test_python_manifests_route_to_pypi(self):
-        from driftlogg.api.manifests import ManifestKind
-        from driftlogg.cli import ecosystem_for
+        from driftlogg.api.manifests import ManifestKind, ecosystem_for
         from driftlogg.collect.registry import Ecosystem
 
         assert ecosystem_for(ManifestKind.PYPROJECT_TOML) is Ecosystem.PYPI
@@ -458,3 +475,25 @@ class TestEcosystemRouting:
             service.score_packages(["numpy"], ecosystem=Ecosystem.PYPI)
 
         assert set(service._cache) == {"npm:numpy", "pypi:numpy"}
+
+    def test_default_as_of_is_naive_utc(self):
+        """Parsed event timestamps are naive; an aware as_of crashes comparisons."""
+        from unittest.mock import MagicMock, patch
+
+        from driftlogg.api.service import ScoringService
+
+        service = ScoringService.__new__(ScoringService)
+        service._cache = {}
+        service._model = None
+        service._feature_columns = []
+        score_one = MagicMock(return_value="ok")
+
+        with (
+            patch("driftlogg.api.service.GitHubClient", MagicMock()),
+            patch("driftlogg.api.service.resolver_for", MagicMock()),
+            patch.object(ScoringService, "_score_one", score_one),
+        ):
+            service.score_packages(["left-pad"])
+
+        as_of = score_one.call_args.args[1]
+        assert as_of.tzinfo is None

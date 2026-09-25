@@ -23,10 +23,9 @@ import subprocess
 import sys
 from pathlib import Path
 
-from driftlogg.api.manifests import ManifestKind, ManifestParseError, parse_manifest
+from driftlogg.api.manifests import ManifestParseError, ecosystem_for, parse_manifest
 from driftlogg.api.schemas import PackageRisk, RiskBand
 from driftlogg.api.service import ScoringService
-from driftlogg.collect.registry import Ecosystem
 
 logger = logging.getLogger(__name__)
 
@@ -254,13 +253,3 @@ def main(argv: list[str] | None = None) -> int:
 
 if __name__ == "__main__":
     sys.exit(main())
-
-
-def ecosystem_for(kind: ManifestKind) -> Ecosystem:
-    """Map a manifest format to the registry its names live in.
-
-    A package.json name is an npm name; a requirements.txt or pyproject.toml
-    name is a PyPI name. Resolving one against the other silently returns an
-    unrelated project that happens to share the name.
-    """
-    return Ecosystem.NPM if kind is ManifestKind.PACKAGE_JSON else Ecosystem.PYPI

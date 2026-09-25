@@ -17,7 +17,7 @@ from fastapi import Depends, FastAPI, File, HTTPException, UploadFile
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
-from driftlogg.api.manifests import ManifestParseError, parse_manifest
+from driftlogg.api.manifests import ManifestParseError, ecosystem_for, parse_manifest
 from driftlogg.api.schemas import (
     HealthResponse,
     PackageRisk,
@@ -124,7 +124,7 @@ async def score_manifest(
         raise HTTPException(status_code=400, detail="Manifest must be UTF-8 text.") from exc
 
     try:
-        _, names = parse_manifest(file.filename or "", content, include_dev=include_dev)
+        kind, names = parse_manifest(file.filename or "", content, include_dev=include_dev)
     except ManifestParseError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
@@ -135,7 +135,9 @@ async def score_manifest(
         logger.info("Truncating %d dependencies to %d.", len(names), MAX_PACKAGES_PER_REQUEST)
         names = names[:MAX_PACKAGES_PER_REQUEST]
 
-    return _build_response(service.score_packages(names), service)
+    return _build_response(
+        service.score_packages(names, ecosystem=ecosystem_for(kind)), service
+    )
 
 
 @app.get("/", include_in_schema=False)
