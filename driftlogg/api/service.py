@@ -13,7 +13,7 @@ from __future__ import annotations
 
 import logging
 import pickle
-from datetime import datetime
+from datetime import UTC, datetime
 from pathlib import Path
 
 import pandas as pd
@@ -179,7 +179,8 @@ class ScoringService:
             as entries carrying an `error` rather than raising, so one bad
             dependency cannot sink an entire manifest.
         """
-        as_of = as_of or datetime.utcnow()
+        # Naive UTC, matching the timestamps parsed in features.py.
+        as_of = as_of or datetime.now(UTC).replace(tzinfo=None)
         results: list[PackageRisk] = []
 
         # Cache keys carry the ecosystem: the same name means different

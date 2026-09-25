@@ -12,6 +12,8 @@ import re
 import tomllib
 from enum import StrEnum
 
+from driftlogg.collect.registry import Ecosystem
+
 REQUIREMENT_RE = re.compile(r"^\s*([A-Za-z0-9._-]+)\s*(?:\[[^\]]+\])?\s*(?:[<>=!~;].*)?$")
 """Matches a requirement line, capturing the bare package name.
 
@@ -25,6 +27,16 @@ class ManifestKind(StrEnum):
     PACKAGE_JSON = "package.json"
     REQUIREMENTS_TXT = "requirements.txt"
     PYPROJECT_TOML = "pyproject.toml"
+
+
+def ecosystem_for(kind: ManifestKind) -> Ecosystem:
+    """Map a manifest format to the registry its names live in.
+
+    A package.json name is an npm name; a requirements.txt or pyproject.toml
+    name is a PyPI name. Resolving one against the other silently returns an
+    unrelated project that happens to share the name.
+    """
+    return Ecosystem.NPM if kind is ManifestKind.PACKAGE_JSON else Ecosystem.PYPI
 
 
 class ManifestParseError(ValueError):
