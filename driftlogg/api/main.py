@@ -135,9 +135,7 @@ async def score_manifest(
         logger.info("Truncating %d dependencies to %d.", len(names), MAX_PACKAGES_PER_REQUEST)
         names = names[:MAX_PACKAGES_PER_REQUEST]
 
-    return _build_response(
-        service.score_packages(names, ecosystem=ecosystem_for(kind)), service
-    )
+    return _build_response(service.score_packages(names, ecosystem=ecosystem_for(kind)), service)
 
 
 @app.get("/", include_in_schema=False)
